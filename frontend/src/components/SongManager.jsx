@@ -1,5 +1,6 @@
 // frontend/src/components/SongManager.jsx
 import React, { useEffect, useState, useCallback } from 'react';
+import { API_BASE_URL } from '../config'; // ADDED: Import API_BASE_URL from config.js
 
 function SongManager({ genreUpdateKey }) {
   // --- STATE VARIABLES ---
@@ -14,7 +15,8 @@ function SongManager({ genreUpdateKey }) {
   const [selectedGenreIds, setSelectedGenreIds] = useState([]); // For multiple genre selection
   const [selectedSubGenreIds, setSelectedSubGenreIds] = useState([]); // For multiple sub-genre selection
   const [isNewSongExclusive, setIsNewSongExclusive] = useState(false);
-  const [newSongCollectionType, setNewSongCollectionType] = useState('A'); // Default to Collection A
+  // CHANGED: Default to 'free' to match backend enum
+  const [newSongCollectionType, setNewSongCollectionType] = useState('free');
   const [newSongImage, setNewSongImage] = useState(null); // For image file input
   const [newSongAudio, setNewSongAudio] = useState(null); // For audio file input
   const [uploading, setUploading] = useState(false); // To show loading state during upload
@@ -22,7 +24,6 @@ function SongManager({ genreUpdateKey }) {
   // States for search/filter inputs
   const [genreSearchTerm, setGenreSearchTerm] = useState('');
   const [subGenreSearchTerm, setSubGenreSearchTerm] = useState('');
-  // NEW: Search and Sort states for Existing Songs list
   const [songSearchTerm, setSongSearchTerm] = useState(''); // For searching by song title
   const [sortOrder, setSortOrder] = useState('desc'); // 'desc' for newest first, 'asc' for oldest first
 
@@ -47,7 +48,8 @@ function SongManager({ genreUpdateKey }) {
   // useCallback to memoize fetch functions, preventing unnecessary re-creation
   const fetchSongs = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/songs');
+      // CHANGED: Use API_BASE_URL
+      const response = await fetch(`${API_BASE_URL}/api/songs`);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
@@ -63,7 +65,8 @@ function SongManager({ genreUpdateKey }) {
 
   const fetchAllGenres = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/genres');
+      // CHANGED: Use API_BASE_URL
+      const response = await fetch(`${API_BASE_URL}/api/genres`);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
@@ -79,7 +82,8 @@ function SongManager({ genreUpdateKey }) {
 
   const fetchAllSubGenres = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:5000/api/subgenres'); 
+      // CHANGED: Use API_BASE_URL
+      const response = await fetch(`${API_BASE_URL}/api/subgenres`);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
@@ -122,17 +126,17 @@ function SongManager({ genreUpdateKey }) {
   // Filtered sub-genres based on search term AND selected genres (for upload form)
   const filteredSubGenres = allSubGenres.filter(subGenre => {
     const matchesSearch = subGenre.name.toLowerCase().includes(subGenreSearchTerm.toLowerCase());
-    
+
     if (selectedGenreIds.length === 0) {
       return matchesSearch;
     }
-    const matchesSelectedGenre = subGenre.genre && selectedGenreIds.includes(subGenre.genre._id); 
+    const matchesSelectedGenre = subGenre.genre && selectedGenreIds.includes(subGenre.genre._id);
     return matchesSearch && matchesSelectedGenre;
   });
 
   // NEW: Filtered and Sorted Songs for display
   const displayedSongs = songs
-    .filter(song => 
+    .filter(song =>
       song.title.toLowerCase().includes(songSearchTerm.toLowerCase())
     )
     .sort((a, b) => {
@@ -156,10 +160,11 @@ function SongManager({ genreUpdateKey }) {
       showNotification('Please fill in required fields (Title, Genres, Sub-genres)!', 'error');
       return;
     }
-    
+
+    // Adjusted file requirement logic: only required for NEW songs, not updates if files aren't changed
     if (!editingSongId && (!newSongImage || !newSongAudio)) {
-        showNotification('Both image and audio files are required for new songs!', 'error');
-        return;
+      showNotification('Both image and audio files are required for new songs!', 'error');
+      return;
     }
 
     setUploading(true);
@@ -170,10 +175,12 @@ function SongManager({ genreUpdateKey }) {
     selectedGenreIds.forEach(id => formData.append('genres', id));
     selectedSubGenreIds.forEach(id => formData.append('subGenres', id));
     formData.append('isExclusive', isNewSongExclusive);
+    // CHANGED: Ensure collectionType matches backend enum ('free' or 'paid')
     formData.append('collectionType', newSongCollectionType);
 
-    if (newSongImage) formData.append('image', newSongImage);
-    if (newSongAudio) formData.append('audio', newSongAudio);
+    // CHANGED: Use 'imageFile' and 'audioFile' names to match backend multer setup
+    if (newSongImage) formData.append('imageFile', newSongImage);
+    if (newSongAudio) formData.append('audioFile', newSongAudio);
 
     try {
       let response;
@@ -182,14 +189,18 @@ function SongManager({ genreUpdateKey }) {
 
       if (editingSongId) {
         method = 'PUT';
-        url = `http://localhost:5000/api/songs/${editingSongId}`;
+        // CHANGED: Use API_BASE_URL
+        url = `${API_BASE_URL}/api/songs/${editingSongId}`;
       } else {
         method = 'POST';
-        url = 'http://localhost:5000/api/songs';
+        // CHANGED: Use API_BASE_URL
+        url = `${API_BASE_URL}/api/songs`;
       }
 
       response = await fetch(url, {
         method: method,
+        // IMPORTANT: Do NOT set 'Content-Type': 'multipart/form-data' here.
+        // The browser sets it automatically when you provide a FormData object as the body.
         body: formData,
       });
 
@@ -203,12 +214,13 @@ function SongManager({ genreUpdateKey }) {
       setSelectedGenreIds([]);
       setSelectedSubGenreIds([]);
       setIsNewSongExclusive(false);
-      setNewSongCollectionType('A');
+      setNewSongCollectionType('free'); // Reset to default 'free'
       setNewSongImage(null);
       setNewSongAudio(null);
       setEditingSongId(null);
       setEditingSongOriginalTitle('');
-      
+
+      // Clear file input fields directly
       if (document.getElementById('image')) document.getElementById('image').value = '';
       if (document.getElementById('audio')) document.getElementById('audio').value = '';
 
@@ -227,12 +239,13 @@ function SongManager({ genreUpdateKey }) {
 
   // Handles deleting a song
   const handleDeleteSong = async (id, title) => {
-    if (!window.confirm(`Are you sure you want to delete the song "${title}"? This action cannot be undone and will remove its files from the server.`)) {
+    if (!window.confirm(`Are you sure you want to delete the song "${title}"? This action cannot be undone and will remove its files from Cloudinary.`)) {
       return;
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/songs/${id}`, {
+      // CHANGED: Use API_BASE_URL
+      const response = await fetch(`${API_BASE_URL}/api/songs/${id}`, {
         method: 'DELETE',
       });
 
@@ -257,12 +270,14 @@ function SongManager({ genreUpdateKey }) {
     setEditingSongOriginalTitle(song.title);
 
     setNewSongTitle(song.title);
+    // Ensure genres and subGenres are arrays before mapping
     setSelectedGenreIds(song.genres ? song.genres.map(g => g._id) : []);
     setSelectedSubGenreIds(song.subGenres ? song.subGenres.map(sg => sg._id) : []);
     setIsNewSongExclusive(song.isExclusive);
-    setNewSongCollectionType(song.collectionType);
+    setNewSongCollectionType(song.collectionType); // Keep original collection type
 
-    setNewSongImage(null); 
+    // Clear file inputs when editing, user must re-select if they want to change
+    setNewSongImage(null);
     setNewSongAudio(null);
 
     if (document.getElementById('image')) document.getElementById('image').value = '';
@@ -301,7 +316,7 @@ function SongManager({ genreUpdateKey }) {
 
       {/* Form for uploading/updating songs */}
       <div style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #444' }}>
-        <h3>{editingSongId ? `Edit Song: ${editingSongOriginalTitle}` : 'Upload New Song:'}</h3> 
+        <h3>{editingSongId ? `Edit Song: ${editingSongOriginalTitle}` : 'Upload New Song:'}</h3>
         <form onSubmit={handleAddSong} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
           {/* Title Input */}
           <div>
@@ -411,23 +426,23 @@ function SongManager({ genreUpdateKey }) {
                 <input
                   type="radio"
                   name="collectionType"
-                  value="A"
-                  checked={newSongCollectionType === 'A'}
+                  value="free" // CHANGED: Value to 'free'
+                  checked={newSongCollectionType === 'free'}
                   onChange={(e) => setNewSongCollectionType(e.target.value)}
                   style={{ marginRight: '5px' }}
                 />
-                Collection A (Subscription)
+                Collection Free
               </label>
               <label style={{ color: '#bbb' }}>
                 <input
                   type="radio"
                   name="collectionType"
-                  value="B"
-                  checked={newSongCollectionType === 'B'}
+                  value="paid" // CHANGED: Value to 'paid'
+                  checked={newSongCollectionType === 'paid'}
                   onChange={(e) => setNewSongCollectionType(e.target.value)}
                   style={{ marginRight: '5px' }}
                 />
-                Collection B (Exclusive)
+                Collection Paid
               </label>
             </div>
           </div>
@@ -485,7 +500,7 @@ function SongManager({ genreUpdateKey }) {
                 setSelectedGenreIds([]);
                 setSelectedSubGenreIds([]);
                 setIsNewSongExclusive(false);
-                setNewSongCollectionType('A');
+                setNewSongCollectionType('free'); // Reset to default 'free'
                 setNewSongImage(null);
                 setNewSongAudio(null);
                 if (document.getElementById('image')) document.getElementById('image').value = '';
@@ -529,13 +544,13 @@ function SongManager({ genreUpdateKey }) {
           {displayedSongs.map(song => (
             <li key={song._id} style={{ marginBottom: '15px', padding: '10px', background: '#444', borderRadius: '4px', display: 'flex', alignItems: 'center' }}>
               {/* Song Image */}
-              <img 
-                src={song.imagePath} // This will now be a GCS URL
-                alt={song.title} 
-                style={{ width: '80px', height: '80px', borderRadius: '4px', marginRight: '15px', objectFit: 'cover' }} 
+              <img
+                src={song.imageUrl} // CHANGED: From imagePath to imageUrl
+                alt={song.title}
+                style={{ width: '80px', height: '80px', borderRadius: '4px', marginRight: '15px', objectFit: 'cover' }}
                 onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/80x80/000/FFF?text=No+Image'; }} // Fallback
               />
-              
+
               {/* Song Details */}
               <div style={{ flexGrow: 1 }}>
                 <h4 style={{ margin: '0', color: 'white' }}>{song.title} (Collection {song.collectionType}) {song.isExclusive ? '(Exclusive)' : ''}</h4>
@@ -546,7 +561,7 @@ function SongManager({ genreUpdateKey }) {
                   Sub-genres: {song.subGenres && Array.isArray(song.subGenres) && song.subGenres.length > 0 ? song.subGenres.map(sg => sg.name).join(', ') : 'N/A'}
                 </p>
                 {/* Audio Player */}
-                <audio controls src={song.audioPath} style={{ width: '100%', marginTop: '10px' }}> {/* This will now be a GCS URL */}
+                <audio controls src={song.audioUrl} style={{ width: '100%', marginTop: '10px' }}> {/* CHANGED: From audioPath to audioUrl */}
                   Your browser does not support the audio element.
                 </audio>
                 <span style={{ fontSize: '0.8em', color: '#777' }}>ID: {song._id}</span>

@@ -5,16 +5,18 @@ const Genre = require('../models/Genre'); // Ensure Genre model is imported
 // Create a new sub-genre
 const createSubGenre = async (req, res) => {
     try {
-        const { name, genreId } = req.body;
+        // CHANGED: Expect 'genre' from req.body to match frontend
+        const { name, genre } = req.body; 
 
-        const existingGenre = await Genre.findById(genreId);
+        // Use 'genre' to find the existing genre
+        const existingGenre = await Genre.findById(genre); 
         if (!existingGenre) {
             return res.status(404).json({ success: false, error: 'Parent genre not found.' });
         }
 
         const newSubGenre = new SubGenre({
             name,
-            genre: genreId
+            genre: genre // Use 'genre' here
         });
         await newSubGenre.save();
         res.status(201).json(newSubGenre);
@@ -68,16 +70,19 @@ const deleteSubGenre = async (req, res) => {
 const updateSubGenre = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, genreId } = req.body;
+        // CHANGED: Expect 'genre' from req.body to match frontend
+        const { name, genre } = req.body; 
 
         if (!name || name.trim() === '') {
             return res.status(400).json({ success: false, error: 'Sub-genre name cannot be empty.' });
         }
-        if (!genreId) {
+        // CHANGED: Check for 'genre' instead of 'genreId'
+        if (!genre) { 
             return res.status(400).json({ success: false, error: 'Parent genre ID is required.' });
         }
 
-        const existingGenre = await Genre.findById(genreId);
+        // Use 'genre' to find the existing genre
+        const existingGenre = await Genre.findById(genre); 
         if (!existingGenre) {
             return res.status(404).json({ success: false, error: 'New parent genre not found.' });
         }
@@ -85,7 +90,7 @@ const updateSubGenre = async (req, res) => {
         // Update sub-genre, and populate the 'genre' field in the returned document
         const updatedSubGenre = await SubGenre.findByIdAndUpdate(
             id,
-            { name: name, genre: genreId },
+            { name: name, genre: genre }, // Use 'genre' here
             { new: true, runValidators: true }
         ).populate('genre', 'name'); // Populate to return the genre's name for frontend display
 

@@ -1,5 +1,6 @@
 // frontend/src/components/GenreManager.jsx
 import React, { useEffect, useState } from 'react';
+import { API_BASE_URL } from '../config'; // ADDED: Import API_BASE_URL from config.js
 
 // We now receive 'onGenreAdded' as a prop from App.jsx
 function GenreManager({ onGenreAdded }) {
@@ -20,8 +21,9 @@ function GenreManager({ onGenreAdded }) {
   const fetchGenres = async () => {
     try {
       setLoading(true); // Indicate loading
-      const response = await fetch('http://localhost:5000/api/genres');
-      
+      // CHANGED: Use API_BASE_URL
+      const response = await fetch(`${API_BASE_URL}/api/genres`);
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
@@ -56,10 +58,12 @@ function GenreManager({ onGenreAdded }) {
 
       if (editingGenreId) { // If editingGenreId is set, it's an UPDATE operation
         method = 'PUT';
-        url = `http://localhost:5000/api/genres/${editingGenreId}`;
+        // CHANGED: Use API_BASE_URL
+        url = `${API_BASE_URL}/api/genres/${editingGenreId}`;
       } else { // Otherwise, it's a new ADD operation
         method = 'POST';
-        url = 'http://localhost:5000/api/genres';
+        // CHANGED: Use API_BASE_URL
+        url = `${API_BASE_URL}/api/genres`;
       }
 
       response = await fetch(url, {
@@ -83,7 +87,7 @@ function GenreManager({ onGenreAdded }) {
       // Notify the parent component (App.jsx) that genre data has changed.
       // This will trigger a refresh in SubGenreManager and SongManager.
       if (onGenreAdded) {
-        onGenreAdded(); 
+        onGenreAdded();
       }
 
       alert(`Genre ${editingGenreId ? 'updated' : 'added'} successfully!`);
@@ -103,7 +107,8 @@ function GenreManager({ onGenreAdded }) {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/genres/${id}`, {
+      // CHANGED: Use API_BASE_URL
+      const response = await fetch(`${API_BASE_URL}/api/genres/${id}`, {
         method: 'DELETE',
       });
 
@@ -114,10 +119,10 @@ function GenreManager({ onGenreAdded }) {
 
       alert('Genre deleted successfully!');
       await fetchGenres(); // Re-fetch genres to update the list
-      
+
       // Notify parent about genre change (for sub-genre dropdown refresh in other components)
-      if (onGenreAdded) { 
-          onGenreAdded(); 
+      if (onGenreAdded) {
+        onGenreAdded();
       }
     } catch (err) {
       console.error("Failed to delete genre:", err);
@@ -163,11 +168,11 @@ function GenreManager({ onGenreAdded }) {
   return (
     <div style={{ padding: '20px', border: '1px solid #ccc', margin: '20px', borderRadius: '8px', backgroundColor: '#333', color: '#eee' }}>
       <h2>Manage Genres</h2>
-      
+
       {/* Form to add/edit a genre */}
       <div style={{ marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid #444' }}>
         {/* Dynamic heading based on whether we are editing or adding */}
-        <h3>{editingGenreId ? `Edit Genre: ${editingGenreName}` : 'Add New Genre:'}</h3> 
+        <h3>{editingGenreId ? `Edit Genre: ${editingGenreName}` : 'Add New Genre:'}</h3>
         <input
           type="text"
           placeholder="Enter genre name"
@@ -175,15 +180,15 @@ function GenreManager({ onGenreAdded }) {
           onChange={(e) => setNewGenreName(e.target.value)} // Update state as user types
           style={{ padding: '8px', marginRight: '10px', width: '200px', backgroundColor: '#555', color: 'white', border: '1px solid #666', borderRadius: '4px' }}
         />
-        <button 
-          onClick={handleAddGenre} 
-          style={{ 
-            padding: '8px 15px', 
+        <button
+          onClick={handleAddGenre}
+          style={{
+            padding: '8px 15px',
             backgroundColor: editingGenreId ? '#007bff' : '#4CAF50', // Blue for Update, Green for Add
-            color: 'white', 
-            border: 'none', 
-            borderRadius: '4px', 
-            cursor: 'pointer' 
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
           }}
         >
           {editingGenreId ? 'Update Genre' : 'Add Genre'} {/* Dynamic button text */}
@@ -192,17 +197,17 @@ function GenreManager({ onGenreAdded }) {
           <button
             onClick={() => {
               setEditingGenreId(null);       // Exit editing mode
-              setEditingGenreName('');      // Clear editing name
-              setNewGenreName('');          // Clear the input field
+              setEditingGenreName('');       // Clear editing name
+              setNewGenreName('');           // Clear the input field
             }}
-            style={{ 
-              padding: '8px 15px', 
+            style={{
+              padding: '8px 15px',
               backgroundColor: '#6c757d', // Grey for Cancel
-              color: 'white', 
-              border: 'none', 
-              borderRadius: '4px', 
-              cursor: 'pointer', 
-              marginLeft: '10px' 
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              marginLeft: '10px'
             }}
           >
             Cancel Edit

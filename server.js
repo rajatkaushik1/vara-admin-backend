@@ -59,40 +59,45 @@ app.get('/', (req, res) => {
 });
 // --- End Simple Root Route ---
 
-// --- START PORT BINDING FIX FOR RENDER (Attempt 4) ---
+// --- START PORT BINDING FIX FOR RENDER (Attempt 5 - Explicit Host & Exit) ---
 // Connect to MongoDB and start server
 mongoose.connect(process.env.MONGODB_URI, {
     // These options are deprecated in newer Mongoose/MongoDB drivers and can be removed.
     // They cause warnings but should not prevent startup. Removing for cleaner logs.
-    // useNewUrlParser: true,
-    // useUnifiedTopology: true,
+    // useNewUrlParser: true, // Removed as deprecated
+    // useUnifiedTopology: true, // Removed as deprecated
 })
 .then(() => {
     console.log("✅ Connected to MongoDB");
-    
-    const renderPort = process.env.PORT; // Get the port provided by Render
+
+    // Render expects your app to listen on the PORT it provides in the environment.
+    const renderPort = process.env.PORT;
+    const renderHost = '0.0.0.0'; // Explicitly bind to all available network interfaces
 
     if (!renderPort) {
-        console.error("❌ PORT environment variable is not set. This is required for Render deployment.");
-        // If this error happens on Render, it indicates a fundamental Render configuration issue.
-        // For local development, if PORT isn't in .env, you'd usually default to 5000.
-        // For Render, we expect it to be set.
+        console.error("❌ PORT environment variable is not set. This is critical for Render deployment.");
+        // If PORT is not set by Render, the app cannot start. Exit to show explicit failure.
+        process.exit(1);
     }
 
-    app.listen(renderPort, () => {
-        console.log(`🚀 Server running on port ${renderPort}`);
+    // Explicitly listen on the provided PORT and HOST.
+    app.listen(renderPort, renderHost, () => { // Added renderHost here
+        console.log(`🚀 Server running on http://${renderHost}:${renderPort}`);
     }).on('error', (err) => {
         console.error("❌ Server failed to start due to port binding:", err);
         if (err.code === 'EADDRINUSE') {
-            console.error("The port is already in use. This should not happen on Render.");
+            console.error("The port is already in use by another process. This should not happen on Render.");
         } else if (err.code === 'EACCES') {
             console.error("Permission denied to bind to port.");
         }
+        // If listen fails, the process is likely dead. Exit to signal failure to Render.
+        process.exit(1);
     });
 })
 .catch((err) => {
     console.error("❌ MongoDB connection error:", err);
-    // If MongoDB connection fails, this will be logged, and the server won't start listening.
+    // If MongoDB connection fails, the server cannot function. Exit to signal failure to Render.
+    process.exit(1);
 });
 // --- END PORT BINDING FIX FOR RENDER ---
 
@@ -100,16 +105,14 @@ mongoose.connect(process.env.MONGODB_URI, {
 // Catch unhandled promise rejections (async errors)
 process.on('unhandledRejection', (reason, promise) => {
     console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-    // Application specific logging, throwing an error, or other logic here
-    // Consider graceful shutdown if this is a critical unhandled rejection
-    // process.exit(1); // Exit with a failure code
+    // Exit process to ensure Render detects a failure, rather than timing out
+    process.exit(1);
 });
 
 // Catch uncaught exceptions (sync errors)
 process.on('uncaughtException', (err) => {
     console.error('❌ Uncaught Exception:', err);
-    // This is a last-resort error handler.
-    // Perform any cleanup, then gracefully shut down the process.
-    // process.exit(1); // Exit with a failure code
+    // Exit process to ensure Render detects a failure, rather than timing out
+    process.exit(1);
 });
-// --- End Global Error Handling ---
+// --- End Global Error Handling ---s

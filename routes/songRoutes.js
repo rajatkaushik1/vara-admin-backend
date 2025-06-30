@@ -36,13 +36,22 @@ router.post(
     { name: "audioFile", maxCount: 1 },
     { name: "imageFile", maxCount: 1 },
   ]),
-  songController.uploadSong // <--- CORRECTED: Changed from createSong to uploadSong
+  songController.uploadSong
 );
+
+// Route to update a song by ID (handles file re-uploads as well as text data)
+// IMPORTANT: Apply multer middleware here too for PUT requests that send FormData
+router.put(
+  "/:id",
+  upload.fields([
+    { name: "audioFile", maxCount: 1 },
+    { name: "imageFile", maxCount: 1 },
+  ]),
+  songController.updateSong
+); // <--- CORRECTED: Added upload.fields middleware
 
 // Other existing routes
 router.get("/", songController.getAllSongs);
-// router.get("/:id", songController.getSongById); // REMOVED: Not exported by your current songController
-router.put("/:id", songController.updateSong);
 router.delete("/:id", songController.deleteSong);
 
 module.exports = router;

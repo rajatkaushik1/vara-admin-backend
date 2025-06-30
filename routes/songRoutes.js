@@ -1,7 +1,7 @@
 // routes/songRoutes.js
 const express = require("express");
 const router = express.Router();
-const songController = require("../controllers/songController");
+const songController = require("../controllers/songController"); // Import the controller
 const multer = require("multer"); // Import multer
 const { CloudinaryStorage } = require("multer-storage-cloudinary"); // Import CloudinaryStorage
 const cloudinary = require("cloudinary").v2; // Import cloudinary
@@ -28,7 +28,7 @@ const upload = multer({ storage: storage });
 
 // --- Song Routes ---
 
-// Route to create a new song (handles file uploads)
+// Route to create/upload a new song (handles file uploads)
 // 'upload.fields' is used to handle multiple files (audio and image)
 router.post(
   "/",
@@ -36,13 +36,13 @@ router.post(
     { name: "audioFile", maxCount: 1 },
     { name: "imageFile", maxCount: 1 },
   ]),
-  songController.createSong
+  songController.uploadSong // <--- CORRECTED: Changed from createSong to uploadSong
 );
 
-// Other existing routes (if any)
+// Other existing routes
 router.get("/", songController.getAllSongs);
-router.get("/:id", songController.getSongById);
-router.put("/:id", songController.updateSong); // Note: For updates, files might need separate handling or re-upload
+// router.get("/:id", songController.getSongById); // REMOVED: Not exported by your current songController
+router.put("/:id", songController.updateSong);
 router.delete("/:id", songController.deleteSong);
 
 module.exports = router;

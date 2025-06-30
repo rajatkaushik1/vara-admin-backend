@@ -13,6 +13,7 @@ const app = express();
 // Define allowed origins for CORS.
 // This is crucial for your frontend (React app) to communicate with this backend.
 const allowedOrigins = [
+    // IMPORTANT: Verify this exact URL matches the URL your frontend is running on (e.g., http://localhost:5173)
     'http://localhost:5173', // Your local React frontend development server
     'https://vara-admin-backend.onrender.com', // Your LIVE Render backend URL
 ];
@@ -96,7 +97,7 @@ mongoose.connect(process.env.MONGODB_URI, {
     // If MongoDB connection fails, the server cannot function. Exit to signal failure to Render.
     process.exit(1);
 });
-// --- END PORT BINDING FIX FOR RENDER ---
+// --- End Global Error Handling ---
 
 // --- Global Error Handling for Node.js Process ---
 // Catch unhandled promise rejections (async errors)

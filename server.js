@@ -14,11 +14,8 @@ const app = express();
 // This is crucial for your frontend (React app) to communicate with this backend.
 const allowedOrigins = [
     'http://localhost:5173', // Your local React frontend development server
-    // IMPORTANT: AFTER you deploy your backend to Render.com and get its URL,
-    // you MUST add your Render backend URL here.
-    // Example: 'https://your-backend-name.onrender.com'
+    'https://vara-admin-backend.onrender.com', // Your LIVE Render backend URL
 ];
-
 app.use(cors({
     origin: function (origin, callback) {
         // Allow requests with no origin (like mobile apps, curl requests, or same-origin requests)
@@ -115,4 +112,4 @@ process.on('uncaughtException', (err) => {
     // Exit process to ensure Render detects a failure, rather than timing out
     process.exit(1);
 });
-// --- End Global Error Handling ---s
+// --- End Global Error Handling ---

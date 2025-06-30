@@ -14,7 +14,7 @@ const app = express();
 // This is crucial for your frontend (React app) to communicate with this backend.
 const allowedOrigins = [
     'http://localhost:5173', // Your local React frontend development server
-    // IMPORTANT: AFTER you deploy your backend to Render.com,
+    // IMPORTANT: AFTER you deploy your backend to Render.com and get its URL,
     // you MUST add your Render backend URL here.
     // Example: 'https://your-backend-name.onrender.com'
 ];
@@ -51,6 +51,11 @@ app.use("/api/genres", genreRoutes);
 app.use("/api/subgenres", subGenreRoutes);
 app.use("/api/songs", songRoutes);
 
+// --- START PORT BINDING FIX FOR RENDER ---
+// Define the PORT to listen on. Render provides it via process.env.PORT.
+// For local development, it will fall back to 5000.
+const PORT = process.env.PORT || 5000;
+
 // Connect to MongoDB and start server
 mongoose.connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
@@ -58,12 +63,16 @@ mongoose.connect(process.env.MONGODB_URI, {
 })
 .then(() => {
     console.log("✅ Connected to MongoDB");
-    // Render automatically assigns a PORT. We use process.env.PORT for deployment
-    // and fallback to 5000 for local development.
-    app.listen(process.env.PORT || 5000, () => {
-        console.log(`🚀 Server running on port ${process.env.PORT || 5000}`);
+    // Ensure the server explicitly listens on the PORT determined above.
+    // Added an error handler (.on('error')) for better troubleshooting.
+    app.listen(PORT, () => {
+        console.log(`🚀 Server running on port ${PORT}`);
+    }).on('error', (err) => {
+        // Log any errors if the server fails to bind to the port
+        console.error("❌ Server failed to start:", err);
     });
 })
 .catch((err) => {
     console.error("❌ MongoDB connection error:", err);
 });
+// --- END PORT BINDING FIX FOR RENDER ---

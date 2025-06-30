@@ -51,11 +51,7 @@ app.use("/api/genres", genreRoutes);
 app.use("/api/subgenres", subGenreRoutes);
 app.use("/api/songs", songRoutes);
 
-// --- START PORT BINDING FIX FOR RENDER ---
-// Define the PORT to listen on. Render provides it via process.env.PORT.
-// For local development, it will fall back to 5000.
-const PORT = process.env.PORT || 5000;
-
+// --- START PORT BINDING FIX FOR RENDER (Attempt 3) ---
 // Connect to MongoDB and start server
 mongoose.connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
@@ -63,13 +59,30 @@ mongoose.connect(process.env.MONGODB_URI, {
 })
 .then(() => {
     console.log("✅ Connected to MongoDB");
-    // Ensure the server explicitly listens on the PORT determined above.
-    // Added an error handler (.on('error')) for better troubleshooting.
-    app.listen(PORT, () => {
-        console.log(`🚀 Server running on port ${PORT}`);
+    
+    // Render expects your app to listen on the PORT it provides in the environment.
+    // We will directly use process.env.PORT. For local testing, you would typically run
+    // with a tool like 'nodemon' or ensure PORT is set in your local .env.
+    const renderPort = process.env.PORT; // Get the port provided by Render
+
+    // It's good practice to log if PORT isn't found, though Render should always provide it.
+    if (!renderPort) {
+        console.error("❌ PORT environment variable is not set. This is required for Render deployment.");
+        // If running locally without a .env PORT, you might default here, e.g., renderPort = 5000;
+        // But for Render, this indicates a configuration issue if it's not set.
+    }
+
+    // Explicitly listen on the port provided by Render.
+    // Added an error handler (.on('error')) for better troubleshooting if binding fails.
+    app.listen(renderPort, () => {
+        console.log(`🚀 Server running on port ${renderPort}`);
     }).on('error', (err) => {
-        // Log any errors if the server fails to bind to the port
-        console.error("❌ Server failed to start:", err);
+        console.error("❌ Server failed to start due to port binding:", err);
+        if (err.code === 'EADDRINUSE') {
+            console.error("The port is already in use by another process. This should not happen on Render.");
+        } else if (err.code === 'EACCES') {
+            console.error("Permission denied to bind to port. Try a higher port number if running locally, or check Render configuration.");
+        }
     });
 })
 .catch((err) => {

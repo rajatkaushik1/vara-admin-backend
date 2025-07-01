@@ -44,10 +44,12 @@ app.use(express.json());
 const genreRoutes = require("./routes/genreRoutes");
 const subGenreRoutes = require("./routes/subGenreRoutes");
 const songRoutes = require("./routes/songRoutes");
+const authRoutes = require("./routes/authRoutes"); // ADDED: Import auth routes
 
 app.use("/api/genres", genreRoutes);
 app.use("/api/subgenres", subGenreRoutes);
 app.use("/api/songs", songRoutes);
+app.use("/api/auth", authRoutes); // ADDED: Use auth routes
 
 // --- Simple Root Route for Health Check ---
 // Render (and other services) sometimes do a quick check on the root path ('/')

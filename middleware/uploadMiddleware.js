@@ -1,80 +1,68 @@
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+    // C:\Users\Dell\Desktop\vara-admin\middleware\uploadMiddleware.js
+    const multer = require('multer');
+    const { CloudinaryStorage } = require('multer-storage-cloudinary');
+    const cloudinary = require('cloudinary').v2;
 
-// Ensure upload directories exist
-const ensureUploadDirs = () => {
-    const dirs = [
-        path.join(__dirname, '../uploads/images'),
-        path.join(__dirname, '../uploads/music')
-    ];
-
-    dirs.forEach(dir => {
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
+    // Configure Cloudinary
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET
     });
-};
-ensureUploadDirs(); // Call it immediately to ensure dirs exist on server start
 
-// Configure storage based on fieldname
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        if (file.fieldname === 'image') {
-            cb(null, path.join(__dirname, '../uploads/images'));
-        } else if (file.fieldname === 'audio') {
-            cb(null, path.join(__dirname, '../uploads/music'));
+    // Configure Cloudinary storage for Multer
+    const storage = new CloudinaryStorage({
+      cloudinary: cloudinary,
+      params: async (req, file) => {
+        let folder;
+        // Determine folder based on file fieldname
+        if (file.fieldname === 'imageFile' || file.fieldname === 'audioFile') {
+          folder = 'vara-music-songs'; // Folder for song images/audio
+        } else if (file.fieldname === 'genreImage') {
+          folder = 'vara-music-genres'; // Folder for genre images
+        } else if (file.fieldname === 'subGenreImage') {
+          folder = 'vara-music-subgenres'; // Folder for sub-genre images
         } else {
-            cb(new Error('Invalid fieldname for file upload'), false);
+          folder = 'vara-music-misc'; // Fallback for other files
         }
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const ext = path.extname(file.originalname);
-        cb(null, file.fieldname + '-' + uniqueSuffix + ext); // e.g., 'image-...' or 'audio-...'
-    }
-});
 
-// File filter for images
-const imageFilter = (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
-    if (allowedTypes.includes(file.mimetype)) {
+        let resource_type = 'image'; // Default to image
+        if (file.fieldname === 'audioFile') {
+          resource_type = 'raw'; // For audio files, use 'raw' resource type
+        }
+
+        return {
+          folder: folder,
+          format: file.originalname.split('.').pop(), // Use original file extension
+          public_id: `${file.fieldname}-${Date.now()}`, // Unique public ID
+          resource_type: resource_type // Set resource type
+        };
+      },
+    });
+
+    // Initialize Multer with the Cloudinary storage
+    // Use .fields() to accept multiple files under different field names
+    const upload = multer({
+      storage: storage,
+      limits: {
+        fileSize: 1024 * 1024 * 50 // 50 MB file size limit (adjust as needed)
+      },
+      fileFilter: (req, file, cb) => {
+        // Basic file type validation
+        if (file.fieldname === 'imageFile' || file.fieldname === 'genreImage' || file.fieldname === 'subGenreImage') {
+          if (!file.originalname.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+            return cb(new Error('Only image files (jpg, jpeg, png, gif, webp) are allowed!'), false);
+          }
+        } else if (file.fieldname === 'audioFile') {
+          if (!file.originalname.match(/\.(mp3|wav|aac|ogg)$/i)) {
+            return cb(new Error('Only audio files (mp3, wav, aac, ogg) are allowed!'), false);
+          }
+        }
         cb(null, true);
-    } else {
-        cb(new Error('Only JPEG, PNG, JPG, or WEBP images are allowed!'), false);
-    }
-};
+      }
+    });
 
-// File filter for audio
-const audioFilter = (req, file, cb) => {
-    const allowedTypes = ['audio/mpeg', 'audio/wav', 'audio/mp3', 'audio/aac', 'audio/ogg'];
-    if (allowedTypes.includes(file.mimetype)) {
-        cb(null, true);
-    } else {
-        cb(new Error('Only MP3, WAV, AAC, or OGG audio files are allowed!'), false);
-    }
-};
-
-// Combined file filter for Multer
-const fileFilter = (req, file, cb) => {
-    if (file.fieldname === 'image') {
-        imageFilter(req, file, cb);
-    } else if (file.fieldname === 'audio') {
-        audioFilter(req, file, cb);
-    } else {
-        // For non-file fields or unexpected file fields, we can handle or reject
-        cb(null, true); // Allow other fields to pass through (like text fields)
-    }
-};
-
-// Create Multer instance
-const upload = multer({
-    storage: storage,
-    fileFilter: fileFilter,
-    limits: {
-        fileSize: 20 * 1024 * 1024 // 20MB limit for any file (can be adjusted per field if needed)
-    }
-});
-
-// Export the Multer instance directly
-module.exports = upload;
+    // Export the configured upload middleware
+    // We'll use this in routes like: upload.fields([{ name: 'genreImage', maxCount: 1 }])
+    module.exports = upload;
+    

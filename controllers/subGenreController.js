@@ -1,114 +1,195 @@
-// C:\Users\Dell\Desktop\vara-admin\controllers\subGenreController.js
-const SubGenre = require('../models/SubGenre');
-const Genre = require('../models/Genre'); // Ensure Genre model is imported
+    // C:\Users\Dell\Desktop\vara-admin\controllers\subGenreController.js
+    const SubGenre = require('../models/SubGenre');
+    const Genre = require('../models/Genre'); // Needed for validation
+    const cloudinary = require('cloudinary').v2; // Import Cloudinary
 
-// Create a new sub-genre
-const createSubGenre = async (req, res) => {
-    try {
-        // CHANGED: Expect 'genre' from req.body to match frontend
-        const { name, genre } = req.body; 
+    // Helper function to extract public ID from Cloudinary URL
+    const getPublicIdFromCloudinaryUrl = (url) => {
+        if (!url) return null;
+        const parts = url.split('/');
+        const uploadIndex = parts.indexOf('upload');
+        if (uploadIndex > -1 && parts[uploadIndex + 1]) {
+            const publicIdWithVersion = parts.slice(uploadIndex + 1).join('/');
+            // Remove version number (e.g., 'v123456789/') and extension
+            const finalId = publicIdWithVersion.split('/').slice(1).join('/').split('.')[0];
+            return finalId;
+        }
+        return null;
+    };
 
-        // Use 'genre' to find the existing genre
-        const existingGenre = await Genre.findById(genre); 
-        if (!existingGenre) {
-            return res.status(404).json({ success: false, error: 'Parent genre not found.' });
+    // @desc    Create a new sub-genre
+    // @route   POST /api/subgenres
+    // @access  Private (Admin)
+    exports.createSubGenre = async (req, res) => {
+        // ADDED: description from req.body
+        const { name, genre, description } = req.body;
+        // ADDED: imageFile from req.files
+        const imageFile = req.files && req.files.subGenreImage && req.files.subGenreImage.length > 0 ? req.files.subGenreImage[0] : null;
+
+        if (!name || !genre) {
+            return res.status(400).json({ success: false, error: 'Sub-genre name and parent genre are required.' });
         }
 
-        const newSubGenre = new SubGenre({
-            name,
-            genre: genre // Use 'genre' here
-        });
-        await newSubGenre.save();
-        res.status(201).json(newSubGenre);
-    } catch (error) {
-        console.error("Error creating sub-genre:", error);
-        res.status(400).json({ success: false, error: error.message });
-    }
-};
+        try {
+            // Check if parent genre exists
+            const parentGenre = await Genre.findById(genre);
+            if (!parentGenre) {
+                return res.status(404).json({ success: false, error: 'Parent genre not found.' });
+            }
 
-// Get sub-genres by parent genre ID
-const getSubGenresByGenre = async (req, res) => {
-    try {
-        const { genreId } = req.params;
-        const subGenres = await SubGenre.find({ genre: genreId }).populate('genre', 'name');
-        res.status(200).json(subGenres);
-    } catch (error) {
-        console.error("Error fetching sub-genres by genre:", error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-};
+            // Check if sub-genre with this name already exists under this genre
+            const subGenreExists = await SubGenre.findOne({ name, genre });
+            if (subGenreExists) {
+                return res.status(409).json({ success: false, error: 'Sub-genre with this name already exists under the selected genre.' });
+            }
 
-// Get all sub-genres
-const getAllSubGenres = async (req, res) => {
-    try {
-        const subGenres = await SubGenre.find().populate('genre', 'name');
-        res.status(200).json(subGenres);
-    } catch (error) {
-        console.error("Error fetching all subgenres:", error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-};
+            const subGenre = new SubGenre({
+                name,
+                genre,
+                description: description || '', // Use provided description or empty string
+                imageUrl: imageFile ? imageFile.path : '' // Store Cloudinary URL if image exists
+            });
 
-// Delete a sub-genre by ID
-const deleteSubGenre = async (req, res) => {
-    try {
+            await subGenre.save();
+            res.status(201).json(subGenre);
+        } catch (error) {
+            console.error("Error creating sub-genre:", error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    };
+
+    // @desc    Get all sub-genres
+    // @route   GET /api/subgenres
+    // @access  Public
+    exports.getAllSubGenres = async (req, res) => {
+        try {
+            const subGenres = await SubGenre.find({}).populate('genre', 'name'); // Populate parent genre name
+            res.json(subGenres);
+        } catch (error) {
+            console.error("Error fetching sub-genres:", error);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    };
+
+    // @desc    Update a sub-genre by ID
+    // @route   PUT /api/subgenres/:id
+    // @access  Private (Admin)
+    exports.updateSubGenre = async (req, res) => {
         const { id } = req.params;
-        const deletedSubGenre = await SubGenre.findByIdAndDelete(id);
+        // ADDED: description from req.body
+        const { name, genre, description } = req.body;
+        // ADDED: imageFile from req.files
+        const imageFile = req.files && req.files.subGenreImage && req.files.subGenreImage.length > 0 ? req.files.subGenreImage[0] : null;
 
-        if (!deletedSubGenre) {
-            return res.status(404).json({ success: false, error: 'Sub-genre not found.' });
+        try {
+            const existingSubGenre = await SubGenre.findById(id);
+            if (!existingSubGenre) {
+                return res.status(404).json({ success: false, error: 'Sub-genre not found.' });
+            }
+
+            // Check if parent genre exists if it's being updated
+            if (genre && genre !== existingSubGenre.genre.toString()) {
+                const parentGenre = await Genre.findById(genre);
+                if (!parentGenre) {
+                    return res.status(404).json({ success: false, error: 'New parent genre not found.' });
+                }
+            }
+
+            // Check if a sub-genre with the new name already exists under the potentially new/same genre
+            if (name && name !== existingSubGenre.name || (genre && genre !== existingSubGenre.genre.toString())) {
+                const nameExists = await SubGenre.findOne({ name: name || existingSubGenre.name, genre: genre || existingSubGenre.genre });
+                if (nameExists && nameExists._id.toString() !== id) {
+                    return res.status(409).json({ success: false, error: 'Another sub-genre with this name already exists under the selected genre.' });
+                }
+            }
+
+            let newImageUrl = existingSubGenre.imageUrl;
+
+            // Handle new image upload
+            if (imageFile) {
+                // Delete old image from Cloudinary if it exists
+                if (existingSubGenre.imageUrl) {
+                    const oldPublicId = getPublicIdFromCloudinaryUrl(existingSubGenre.imageUrl);
+                    if (oldPublicId) {
+                        await cloudinary.uploader.destroy(oldPublicId, (error, result) => {
+                            if (error) console.error("Failed to delete old sub-genre image from Cloudinary:", error);
+                            else console.log("Cloudinary old sub-genre image deletion result:", result);
+                        });
+                    }
+                }
+                newImageUrl = imageFile.path; // Set new Cloudinary URL
+            } else if (req.body.clearImage === 'true') { // Allow clearing image if checkbox/flag is sent from frontend
+                if (existingSubGenre.imageUrl) {
+                    const oldPublicId = getPublicIdFromCloudinaryUrl(existingSubGenre.imageUrl);
+                    if (oldPublicId) {
+                        await cloudinary.uploader.destroy(oldPublicId, (error, result) => {
+                            if (error) console.error("Failed to delete old sub-genre image from Cloudinary (clear request):", error);
+                            else console.log("Cloudinary old sub-genre image deletion result (clear request):", result);
+                        });
+                    }
+                }
+                newImageUrl = ''; // Clear image URL in DB
+            }
+
+
+            const updatedSubGenre = await SubGenre.findByIdAndUpdate(
+                id,
+                {
+                    name: name || existingSubGenre.name,
+                    genre: genre || existingSubGenre.genre,
+                    description: description !== undefined ? description : existingSubGenre.description,
+                    imageUrl: newImageUrl
+                },
+                { new: true, runValidators: true }
+            ).populate('genre', 'name'); // Populate parent genre name for response
+
+            if (!updatedSubGenre) {
+                return res.status(404).json({ success: false, error: 'Sub-genre not found after update attempt.' });
+            }
+
+            res.status(200).json(updatedSubGenre);
+        } catch (error) {
+            console.error("Error updating sub-genre:", error);
+            res.status(500).json({ success: false, error: error.message });
         }
+    };
 
-        res.status(200).json({ success: true, message: 'Sub-genre deleted successfully.' });
-    } catch (error) {
-        console.error("Error deleting sub-genre:", error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-};
+    // @desc    Delete a sub-genre
+    // @route   DELETE /api/subgenres/:id
+    // @access  Private (Admin)
+    exports.deleteSubGenre = async (req, res) => {
+        try {
+            const { id } = req.params;
 
-// NEW: Update a sub-genre by ID
-const updateSubGenre = async (req, res) => {
-    try {
-        const { id } = req.params;
-        // CHANGED: Expect 'genre' from req.body to match frontend
-        const { name, genre } = req.body; 
+            // Find the sub-genre to get its image URL before deleting
+            const subGenreToDelete = await SubGenre.findById(id);
+            if (!subGenreToDelete) {
+                return res.status(404).json({ success: false, error: 'Sub-genre not found.' });
+            }
 
-        if (!name || name.trim() === '') {
-            return res.status(400).json({ success: false, error: 'Sub-genre name cannot be empty.' });
+            // Delete sub-genre image from Cloudinary
+            if (subGenreToDelete.imageUrl) {
+                const publicId = getPublicIdFromCloudinaryUrl(subGenreToDelete.imageUrl);
+                if (publicId) {
+                    await cloudinary.uploader.destroy(publicId, (error, result) => {
+                        if (error) console.error("Failed to delete sub-genre image from Cloudinary:", error);
+                        else console.log("Cloudinary sub-genre image deletion result:", result);
+                    });
+                } else {
+                    console.warn("Could not extract public ID from sub-genre imageUrl:", subGenreToDelete.imageUrl);
+                }
+            }
+
+            const deletedSubGenre = await SubGenre.findByIdAndDelete(id);
+
+            if (!deletedSubGenre) {
+                return res.status(404).json({ success: false, error: 'Sub-genre not found.' });
+            }
+
+            res.status(200).json({ success: true, message: 'Sub-genre and its image deleted successfully.' });
+        } catch (error) {
+            console.error("Error deleting sub-genre:", error);
+            res.status(500).json({ success: false, error: error.message });
         }
-        // CHANGED: Check for 'genre' instead of 'genreId'
-        if (!genre) { 
-            return res.status(400).json({ success: false, error: 'Parent genre ID is required.' });
-        }
-
-        // Use 'genre' to find the existing genre
-        const existingGenre = await Genre.findById(genre); 
-        if (!existingGenre) {
-            return res.status(404).json({ success: false, error: 'New parent genre not found.' });
-        }
-
-        // Update sub-genre, and populate the 'genre' field in the returned document
-        const updatedSubGenre = await SubGenre.findByIdAndUpdate(
-            id,
-            { name: name, genre: genre }, // Use 'genre' here
-            { new: true, runValidators: true }
-        ).populate('genre', 'name'); // Populate to return the genre's name for frontend display
-
-        if (!updatedSubGenre) {
-            return res.status(404).json({ success: false, error: 'Sub-genre not found.' });
-        }
-
-        res.status(200).json(updatedSubGenre);
-    } catch (error) {
-        console.error("Error updating sub-genre:", error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-};
-
-module.exports = {
-    createSubGenre,
-    getSubGenresByGenre,
-    getAllSubGenres,
-    deleteSubGenre,
-    updateSubGenre, // Export the new function
-};
+    };
+    

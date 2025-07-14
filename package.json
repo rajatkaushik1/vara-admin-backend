@@ -1,28 +1,25 @@
-    {
-      "homepage": ".",
-      "name": "frontend",
-      "private": true,
-      "version": "0.0.0",
-      "type": "module",
+     {
+      "name": "vara-admin",
+      "version": "1.0.0",
+      "description": "Backend for Vara AI Music Platform Admin Panel",
+      "main": "server.cjs", 
       "scripts": {
-        "dev": "vite",
-        "build": "vite build",
-        "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
-        "preview": "vite preview"
+        "start": "node server.cjs" 
       },
+      "keywords": [],
+      "author": "Rajat",
+      "license": "ISC",
       "dependencies": {
-        "react": "^18.2.0",
-        "react-dom": "^18.2.0"
-      },
-      "devDependencies": {
-        "@types/react": "^18.2.66",
-        "@types/react-dom": "^18.2.22",
-        "@vitejs/plugin-react": "^4.2.1",
-        "eslint": "^8.57.0",
-        "eslint-plugin-react": "^7.34.1",
-        "eslint-plugin-react-hooks": "^4.6.0",
-        "eslint-plugin-react-refresh": "^0.4.6",
-        "vite": "^5.2.0"
+        "@google-cloud/storage": "^7.16.0",
+        "bcryptjs": "^3.0.2",
+        "cloudinary": "^1.41.3",
+        "cors": "^2.8.5",
+        "dotenv": "^16.4.5",
+        "express": "^4.19.2",
+        "jsonwebtoken": "^9.0.2",
+        "mongoose": "^8.4.1",
+        "multer": "^1.4.5-lts.1",
+        "multer-storage-cloudinary": "^4.0.0"
       }
     }
     

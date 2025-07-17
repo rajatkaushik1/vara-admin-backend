@@ -12,23 +12,23 @@ const app = express();
 // --- START CORS CONFIGURATION ---
 // Define allowed origins for CORS.
 // This is crucial for your frontend (React app) to communicate with this backend.
-const allowedOrigins = [
-    // IMPORTANT: Verify this exact URL matches the URL your frontend is running on (e.g., http://localhost:5173)
-    'http://localhost:5173', // Your local React frontend development server
-    'https://vara-admin-backend.onrender.com', // Your LIVE Render backend URL
-];
-app.use(cors({
-    origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps, curl requests, or same-origin requests)
-        if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) === -1) {
-            const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-            return callback(new Error(msg), false);
-        }
-        return callback(null, true);
-    },
-    credentials: true // Allows sending HTTP cookies with the request (if needed later for auth)
-}));
+  const allowedOrigins = [
+            'http://localhost:5173', // Your local React frontend development server
+            'https://vara-admin-backend.onrender.com', // Your LIVE Render backend URL
+            'https://vara-admin-frontend.onrender.com' // ADDED: Your LIVE Render frontend URL
+        ];
+        app.use(cors({
+            origin: function (origin, callback) {
+                // Allow requests with no origin (like mobile apps, curl requests, or same-origin requests)
+                if (!origin) return callback(null, true);
+                if (allowedOrigins.indexOf(origin) === -1) {
+                    const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+                    return callback(new Error(msg), false);
+                }
+                return callback(null, true);
+            },
+            credentials: true // Allows sending HTTP cookies with the request (if needed later for auth)
+        }));
 // --- END CORS CONFIGURATION ---
 
 

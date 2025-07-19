@@ -20,8 +20,33 @@ const getPublicIdFromCloudinaryUrl = (url) => {
     return null;
 };
 
+// NEW HELPER FUNCTION: Safely parses a field that should be an array of IDs
+const parseArrayFromBody = (fieldValue) => {
+    // If it's already an array, return it directly
+    if (Array.isArray(fieldValue)) {
+        return fieldValue;
+    }
+    // If it's a non-empty string, try to parse it
+    if (typeof fieldValue === 'string' && fieldValue.trim() !== '') {
+        try {
+            const parsed = JSON.parse(fieldValue);
+            // If successfully parsed and it's an array, return it
+            if (Array.isArray(parsed)) {
+                return parsed;
+            }
+        } catch (e) {
+            // If JSON parsing fails, assume it's a comma-separated string
+            console.warn(`Failed to parse JSON string for array field, attempting comma-split fallback: ${fieldValue}`, e);
+            return fieldValue.split(',').map(item => item.trim()).filter(item => item);
+        }
+    }
+    // Default to an empty array if invalid type, empty string, or parsing failed
+    return [];
+};
 
-// Upload a new song (MODIFIED TO UPLOAD TO CLOUDINARY FIRST AND CAPTURE DURATION)
+
+// Upload a new song (MODIFIED TO UPLOAD TO CLOUDINARY FIRST AND CAPTURE DURATION,
+// AND ROBUSTLY PARSE GENRES/SUBGENRES)
 exports.uploadSong = async (req, res) => {
     const { title, genres, subGenres, collectionType } = req.body;
 
@@ -33,9 +58,9 @@ exports.uploadSong = async (req, res) => {
     }
 
     try {
-        // Parse genre and subGenre IDs (assuming they come as JSON strings from frontend forms)
-        const genreIds = Array.isArray(genres) ? genres : JSON.parse(genres);
-        const subGenreIds = Array.isArray(subGenres) ? subGenres : JSON.parse(subGenres);
+        // Use the new helper function to safely parse genres and subGenres
+        const genreIds = parseArrayFromBody(genres);
+        const subGenreIds = parseArrayFromBody(subGenres);
 
         // Validate Genre and SubGenre IDs
         const existingGenres = await Promise.all(genreIds.map(id => Genre.findById(id)));
@@ -49,7 +74,6 @@ exports.uploadSong = async (req, res) => {
         const audioUploadResult = await cloudinary.uploader.upload(audioFile.path, {
             folder: 'vara-music',
             resource_type: 'video', // Use 'video' to get duration for audio files
-            // You might want to specify 'format' here if you want to convert audio
         });
 
         const imageUploadResult = await cloudinary.uploader.upload(imageFile.path, {
@@ -57,7 +81,7 @@ exports.uploadSong = async (req, res) => {
         });
 
         // Extract duration from Cloudinary audio upload result
-        const duration = audioUploadResult.duration || 0; // Cloudinary provides duration in seconds
+        const duration = audioUploadResult.duration || 0; // duration is in seconds
 
         const song = new Song({
             title,
@@ -113,12 +137,11 @@ exports.deleteSong = async (req, res) => {
             }
         }
 
-        // Delete audio from Cloudinary (resource_type: 'raw' for audio/video)
-        // Cloudinary needs resource_type to be 'video' or 'raw' for audio/video files when destroying
+        // Delete audio from Cloudinary (resource_type: 'video' for audio/video)
         if (songToDelete.audioUrl) {
             const publicId = getPublicIdFromCloudinaryUrl(songToDelete.audioUrl);
             if (publicId) {
-                await cloudinary.uploader.destroy(publicId, { resource_type: 'video' }, (error, result) => { // Changed to 'video' for consistency
+                await cloudinary.uploader.destroy(publicId, { resource_type: 'video' }, (error, result) => {
                     if (error) console.error("Failed to delete audio from Cloudinary:", error);
                     else console.log("Cloudinary audio deletion result:", result);
                 });
@@ -151,9 +174,9 @@ exports.updateSong = async (req, res) => {
         let newAudioUrl = existingSong.audioUrl;
         let newDuration = existingSong.duration; // Initialize with existing duration
 
-        // Parse genre and subGenre IDs (assuming they come as JSON strings from frontend forms)
-        const genreIds = Array.isArray(genres) ? genres : JSON.parse(genres);
-        const subGenreIds = Array.isArray(subGenres) ? subGenres : JSON.parse(subGenres);
+        // Use the new helper function to safely parse genres and subGenres
+        const genreIds = parseArrayFromBody(genres);
+        const subGenreIds = parseArrayFromBody(subGenres);
 
         // Validate Genre and SubGenre IDs for update
         const existingGenres = await Promise.all(genreIds.map(id => Genre.findById(id)));
@@ -187,7 +210,7 @@ exports.updateSong = async (req, res) => {
             if (existingSong.audioUrl) {
                 const oldPublicId = getPublicIdFromCloudinaryUrl(existingSong.audioUrl);
                 if (oldPublicId) {
-                    await cloudinary.uploader.destroy(oldPublicId, { resource_type: 'video' }, (error, result) => { // Use 'video' for audio
+                    await cloudinary.uploader.destroy(oldPublicId, { resource_type: 'video' }, (error, result) => {
                         if (error) console.error("Failed to delete old audio from Cloudinary:", error);
                         else console.log("Cloudinary old audio deletion result:", result);
                     });

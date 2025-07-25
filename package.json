@@ -1,25 +1,25 @@
-     {
+{
       "name": "vara-admin",
       "version": "1.0.0",
       "description": "Backend for Vara AI Music Platform Admin Panel",
-      "main": "server.cjs", 
+      "main": "server.cjs",
       "scripts": {
-        "start": "node server.cjs" 
+            "start": "node server.cjs"
       },
       "keywords": [],
       "author": "Rajat",
       "license": "ISC",
       "dependencies": {
-        "@google-cloud/storage": "^7.16.0",
-        "bcryptjs": "^3.0.2",
-        "cloudinary": "^1.41.3",
-        "cors": "^2.8.5",
-        "dotenv": "^16.4.5",
-        "express": "^4.19.2",
-        "jsonwebtoken": "^9.0.2",
-        "mongoose": "^8.4.1",
-        "multer": "^1.4.5-lts.1",
-        "multer-storage-cloudinary": "^4.0.0"
+            "@google-cloud/storage": "^7.16.0",
+            "bcryptjs": "^3.0.2",
+            "cloudinary": "^1.41.3",
+            "cors": "^2.8.5",
+            "dotenv": "^16.4.5",
+            "express": "^4.19.2",
+            "express-validator": "^7.2.1",
+            "jsonwebtoken": "^9.0.2",
+            "mongoose": "^8.4.1",
+            "multer": "^1.4.5-lts.1",
+            "multer-storage-cloudinary": "^4.0.0"
       }
-    }
-    
+}

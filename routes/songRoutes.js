@@ -1,57 +1,66 @@
-// routes/songRoutes.js
-const express = require("express");
+// vara-admin-backend/routes/songs.js
+
+const express = require('express');
 const router = express.Router();
-const songController = require("../controllers/songController"); // Import the controller
-const multer = require("multer"); // Import multer
-const { CloudinaryStorage } = require("multer-storage-cloudinary"); // Import CloudinaryStorage
-const cloudinary = require("cloudinary").v2; // Import cloudinary
+const { check } = require('express-validator');
+const songController = require('../controllers/songController');
+const auth = require('../middleware/auth');
+const upload = require('../middleware/multer');
 
-// Configure Cloudinary with credentials from .env
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+// @route   GET api/songs
+// @desc    Get all songs
+// @access  Public
+router.get('/', songController.getAllSongs);
 
-// Configure Cloudinary storage for Multer
-const storage = new CloudinaryStorage({
-  cloudinary: cloudinary,
-  params: {
-    folder: "vara-music", // Folder in Cloudinary where files will be stored
-    resource_type: "auto", // Automatically detect if it's image or raw (for audio)
-    // You can add more params like transformation, format, etc.
-  },
-});
-
-// Initialize multer with Cloudinary storage
-const upload = multer({ storage: storage });
-
-// --- Song Routes ---
-
-// Route to create/upload a new song (handles file uploads)
-// 'upload.fields' is used to handle multiple files (audio and image)
+// @route   POST api/songs
+// @desc    Create a song
+// @access  Private
 router.post(
-  "/",
-  upload.fields([
-    { name: "audioFile", maxCount: 1 },
-    { name: "imageFile", maxCount: 1 },
-  ]),
-  songController.uploadSong
+    '/',
+    [
+        auth,
+        upload.fields([{ name: 'image', maxCount: 1 }, { name: 'audio', maxCount: 1 }]),
+        [
+            check('title', 'Title is required').not().isEmpty(),
+            check('artist', 'Artist is required').not().isEmpty(),
+            check('duration', 'Duration is required and must be a number').isNumeric(),
+            check('genres', 'Genres are required').not().isEmpty(),
+            check('collectionType', 'Collection type is required').isIn(['free', 'premium', 'paid']),
+            // --- NEW VALIDATORS ---
+            check('bpm', 'BPM is required and must be a number').not().isEmpty().isNumeric(),
+            check('key', 'Music key is required').not().isEmpty(),
+            check('hasVocals', 'Has Vocals must be a boolean').optional().isBoolean()
+        ]
+    ],
+    songController.createSong
 );
 
-// Route to update a song by ID (handles file re-uploads as well as text data)
-// IMPORTANT: Apply multer middleware here too for PUT requests that send FormData
+// @route   PUT api/songs/:id
+// @desc    Update a song
+// @access  Private
 router.put(
-  "/:id",
-  upload.fields([
-    { name: "audioFile", maxCount: 1 },
-    { name: "imageFile", maxCount: 1 },
-  ]),
-  songController.updateSong
-); // <--- CORRECTED: Added upload.fields middleware
+    '/:id',
+    [
+        auth,
+        upload.fields([{ name: 'image', maxCount: 1 }, { name: 'audio', maxCount: 1 }]),
+        [
+            check('title', 'Title is required').not().isEmpty(),
+            check('artist', 'Artist is required').not().isEmpty(),
+            check('duration', 'Duration is required and must be a number').isNumeric(),
+            check('genres', 'Genres are required').not().isEmpty(),
+            check('collectionType', 'Collection type is required').isIn(['free', 'premium', 'paid']),
+            // --- NEW VALIDATORS ---
+            check('bpm', 'BPM is required and must be a number').not().isEmpty().isNumeric(),
+            check('key', 'Music key is required').not().isEmpty(),
+            check('hasVocals', 'Has Vocals must be a boolean').optional().isBoolean()
+        ]
+    ],
+    songController.updateSong
+);
 
-// Other existing routes
-router.get("/", songController.getAllSongs);
-router.delete("/:id", songController.deleteSong);
+// @route   DELETE api/songs/:id
+// @desc    Delete a song
+// @access  Private
+router.delete('/:id', auth, songController.deleteSong);
 
 module.exports = router;

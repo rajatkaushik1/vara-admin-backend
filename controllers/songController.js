@@ -4,7 +4,8 @@ const Song = require('../models/Song');
 const Genre = require('../models/Genre');
 const SubGenre = require('../models/SubGenre');
 const { validationResult } = require('express-validator');
-const cloudinary = require('../config/cloudinary');
+// --- FIX: Corrected path to cloudinary config ---
+const cloudinary = require('../cloudinary');
 
 // Get all songs with populated genres and subgenres
 exports.getAllSongs = async (req, res) => {

@@ -1,27 +1,41 @@
 // vara-admin-backend/controllers/songController.js
 
 const Song = require('../models/Song');
-const Genre = require('../models/Genre');
-const SubGenre = require('../models/SubGenre');
 const { validationResult } = require('express-validator');
-
-// --- FINAL FIX: Configure Cloudinary directly in this file ---
 const cloudinary = require('cloudinary').v2;
 
+// Configure Cloudinary
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
 });
-// --- END OF FIX ---
+
+// Helper to ensure a value is an array
+const ensureArray = (value) => {
+    if (Array.isArray(value)) {
+        return value;
+    }
+    if (typeof value === 'string') {
+        // Handle both JSON string arrays and single-value strings
+        try {
+            const parsed = JSON.parse(value);
+            return Array.isArray(parsed) ? parsed : [value];
+        } catch (e) {
+            return [value];
+        }
+    }
+    return [];
+};
 
 
-// Get all songs with populated genres and subgenres
+// Get all songs
 exports.getAllSongs = async (req, res) => {
     try {
         const songs = await Song.find()
             .populate('genres', 'name')
-            .populate('subGenres', 'name');
+            .populate('subGenres', 'name')
+            .sort({ createdAt: -1 });
         res.json(songs);
     } catch (err) {
         console.error(err.message);
@@ -36,18 +50,7 @@ exports.createSong = async (req, res) => {
         return res.status(400).json({ errors: errors.array() });
     }
 
-    const {
-        title,
-        artist,
-        duration,
-        genres,
-        subGenres,
-        moods,
-        collectionType,
-        hasVocals,
-        bpm,
-        key
-    } = req.body;
+    const { title, artist, duration, genres, subGenres, collectionType, hasVocals, bpm, key } = req.body;
 
     if (!req.files || !req.files.image || !req.files.audio) {
         return res.status(400).json({ msg: 'Image and audio files are required' });
@@ -61,13 +64,12 @@ exports.createSong = async (req, res) => {
             title,
             artist,
             duration,
-            genres: JSON.parse(genres),
-            subGenres: subGenres ? JSON.parse(subGenres) : [],
-            moods: moods ? JSON.parse(moods) : [],
+            genres: ensureArray(genres),
+            subGenres: ensureArray(subGenres),
             collectionType,
             imageUrl: imageResult.secure_url,
             audioUrl: audioResult.secure_url,
-            hasVocals: hasVocals ? (String(hasVocals).toLowerCase() === 'true') : false,
+            hasVocals: String(hasVocals).toLowerCase() === 'true',
             bpm,
             key
         });
@@ -88,18 +90,7 @@ exports.updateSong = async (req, res) => {
         return res.status(400).json({ errors: errors.array() });
     }
 
-    const {
-        title,
-        artist,
-        duration,
-        genres,
-        subGenres,
-        moods,
-        collectionType,
-        hasVocals,
-        bpm,
-        key
-    } = req.body;
+    const { title, artist, duration, genres, subGenres, collectionType, hasVocals, bpm, key } = req.body;
 
     try {
         let song = await Song.findById(req.params.id);
@@ -111,11 +102,10 @@ exports.updateSong = async (req, res) => {
             title,
             artist,
             duration,
-            genres: JSON.parse(genres),
-            subGenres: subGenres ? JSON.parse(subGenres) : [],
-            moods: moods ? JSON.parse(moods) : [],
+            genres: ensureArray(genres),
+            subGenres: ensureArray(subGenres),
             collectionType,
-            hasVocals: hasVocals ? (String(hasVocals).toLowerCase() === 'true') : false,
+            hasVocals: String(hasVocals).toLowerCase() === 'true',
             bpm,
             key
         };
@@ -133,8 +123,8 @@ exports.updateSong = async (req, res) => {
         song = await Song.findByIdAndUpdate(
             req.params.id,
             { $set: updateData },
-            { new: true }
-        ).populate('genres', 'name').populate('subGenres', 'name');
+            { new: true, runValidators: true }
+        );
 
         res.json(song);
 
@@ -151,9 +141,7 @@ exports.deleteSong = async (req, res) => {
         if (!song) {
             return res.status(404).json({ msg: 'Song not found' });
         }
-
         await song.deleteOne();
-
         res.json({ msg: 'Song removed' });
     } catch (err) {
         console.error('Error in deleteSong:', err);

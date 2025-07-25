@@ -1,11 +1,12 @@
 // vara-admin-backend/controllers/songController.js
 
 const Song = require('../models/Song');
-const Genre =require('../models/Genre');
+const Genre = require('../models/Genre');
 const SubGenre = require('../models/SubGenre');
 const { validationResult } = require('express-validator');
-// --- FIX: Corrected path to go up two directories to the project root ---
-const cloudinary = require('../../cloudinary');
+
+// --- FINAL FIX: Correct path is one directory up ---
+const cloudinary = require('../cloudinary');
 
 // Get all songs with populated genres and subgenres
 exports.getAllSongs = async (req, res) => {
@@ -35,7 +36,6 @@ exports.createSong = async (req, res) => {
         subGenres,
         moods,
         collectionType,
-        // --- NEW FIELDS ---
         hasVocals,
         bpm,
         key
@@ -46,7 +46,6 @@ exports.createSong = async (req, res) => {
     }
 
     try {
-        // Upload files to Cloudinary
         const imageResult = await cloudinary.uploader.upload(req.files.image[0].path, { resource_type: "image", folder: "vara/images" });
         const audioResult = await cloudinary.uploader.upload(req.files.audio[0].path, { resource_type: "video", folder: "vara/audio" });
 
@@ -60,7 +59,6 @@ exports.createSong = async (req, res) => {
             collectionType,
             imageUrl: imageResult.secure_url,
             audioUrl: audioResult.secure_url,
-            // --- NEW FIELDS ---
             hasVocals: hasVocals ? (String(hasVocals).toLowerCase() === 'true') : false,
             bpm,
             key
@@ -90,7 +88,6 @@ exports.updateSong = async (req, res) => {
         subGenres,
         moods,
         collectionType,
-        // --- NEW FIELDS ---
         hasVocals,
         bpm,
         key
@@ -110,19 +107,16 @@ exports.updateSong = async (req, res) => {
             subGenres: subGenres ? JSON.parse(subGenres) : [],
             moods: moods ? JSON.parse(moods) : [],
             collectionType,
-            // --- NEW FIELDS ---
             hasVocals: hasVocals ? (String(hasVocals).toLowerCase() === 'true') : false,
             bpm,
             key
         };
 
-        // If a new image file is uploaded, update it
         if (req.files && req.files.image) {
             const imageResult = await cloudinary.uploader.upload(req.files.image[0].path, { resource_type: "image", folder: "vara/images" });
             updateData.imageUrl = imageResult.secure_url;
         }
 
-        // If a new audio file is uploaded, update it
         if (req.files && req.files.audio) {
             const audioResult = await cloudinary.uploader.upload(req.files.audio[0].path, { resource_type: "video", folder: "vara/audio" });
             updateData.audioUrl = audioResult.secure_url;
@@ -142,7 +136,6 @@ exports.updateSong = async (req, res) => {
     }
 };
 
-
 // Delete a song
 exports.deleteSong = async (req, res) => {
     try {
@@ -151,13 +144,7 @@ exports.deleteSong = async (req, res) => {
             return res.status(404).json({ msg: 'Song not found' });
         }
 
-        // Optional: Delete from Cloudinary as well
-        // const publicIdImage = song.imageUrl.split('/').pop().split('.')[0];
-        // const publicIdAudio = song.audioUrl.split('/').pop().split('.')[0];
-        // await cloudinary.uploader.destroy(`vara/images/${publicIdImage}`);
-        // await cloudinary.uploader.destroy(`vara/audio/${publicIdAudio}`, { resource_type: 'video' });
-
-        await song.deleteOne(); // Use deleteOne() instead of remove()
+        await song.deleteOne();
 
         res.json({ msg: 'Song removed' });
     } catch (err) {

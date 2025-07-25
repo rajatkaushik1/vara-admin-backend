@@ -8,10 +8,11 @@ const songSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
+    // --- ARTIST FIELD IS NOW OPTIONAL ---
     artist: {
         type: String,
-        required: true,
-        trim: true
+        trim: true,
+        default: 'VARA Music' // Provides a default value if none is given
     },
     duration: {
         type: Number, // Duration in seconds
@@ -26,13 +27,9 @@ const songSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'SubGenre'
     }],
-    moods: [{
-        type: String,
-        trim: true
-    }],
     collectionType: {
         type: String,
-        enum: ['free', 'premium', 'paid'],
+        enum: ['free', 'paid'], // Removed 'premium' as it's not in your frontend form
         required: true
     },
     imageUrl: {
@@ -43,7 +40,6 @@ const songSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    // --- NEW FIELDS START ---
     hasVocals: {
         type: Boolean,
         default: false
@@ -57,7 +53,6 @@ const songSchema = new mongoose.Schema({
         required: [true, 'Music key is a required field.'],
         trim: true
     },
-    // --- NEW FIELDS END ---
     createdAt: {
         type: Date,
         default: Date.now

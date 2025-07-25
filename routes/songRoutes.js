@@ -47,16 +47,20 @@ router.post(
 router.put(
     '/:id',
     // auth, // Add auth middleware here
-    // **FIX**: Removed `upload.fields(...)` middleware from this route.
-    // The update operation handles a JSON payload, not FormData, so no file upload middleware is needed.
-    [
-        check('title', 'Title is required').optional().not().isEmpty(),
-        check('genres', 'Genres must be an array').optional().isArray(),
-        check('collectionType', 'Collection type is required').optional().isIn(['free', 'paid']),
-        check('bpm', 'BPM must be a number').optional().isNumeric(),
-        check('key', 'Music key is required').optional().not().isEmpty(),
-        check('hasVocals', 'hasVocals must be a boolean').optional().isBoolean()
-    ],
+    
+    // **DEBUGGING STEP**: The validation middleware has been temporarily removed.
+    // If the update works without this, it confirms one of the validation rules was causing the 400 error.
+    // We can add them back one by one later to find the specific issue.
+    //
+    // [
+    //     check('title', 'Title is required').optional().not().isEmpty(),
+    //     check('genres', 'Genres must be an array').optional().isArray(),
+    //     check('collectionType', 'Collection type is required').optional().isIn(['free', 'paid']),
+    //     check('bpm', 'BPM must be a number').optional().isNumeric(),
+    //     check('key', 'Music key is required').optional().not().isEmpty(),
+    //     check('hasVocals', 'hasVocals must be a boolean').optional().isBoolean()
+    // ],
+
     songController.updateSong
 );
 

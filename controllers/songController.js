@@ -13,11 +13,8 @@ cloudinary.config({
 
 // Helper to ensure a value is an array
 const ensureArray = (value) => {
-    if (Array.isArray(value)) {
-        return value;
-    }
+    if (Array.isArray(value)) return value;
     if (typeof value === 'string') {
-        // Handle both JSON string arrays and single-value strings
         try {
             const parsed = JSON.parse(value);
             return Array.isArray(parsed) ? parsed : [value];
@@ -27,7 +24,6 @@ const ensureArray = (value) => {
     }
     return [];
 };
-
 
 // Get all songs
 exports.getAllSongs = async (req, res) => {
@@ -50,7 +46,8 @@ exports.createSong = async (req, res) => {
         return res.status(400).json({ errors: errors.array() });
     }
 
-    const { title, artist, duration, genres, subGenres, collectionType, hasVocals, bpm, key } = req.body;
+    // --- FIX: Removed 'artist' from this line ---
+    const { title, duration, genres, subGenres, collectionType, hasVocals, bpm, key } = req.body;
 
     if (!req.files || !req.files.image || !req.files.audio) {
         return res.status(400).json({ msg: 'Image and audio files are required' });
@@ -62,7 +59,7 @@ exports.createSong = async (req, res) => {
 
         const newSong = new Song({
             title,
-            artist,
+            // artist field is omitted, will use schema default
             duration,
             genres: ensureArray(genres),
             subGenres: ensureArray(subGenres),
@@ -90,7 +87,8 @@ exports.updateSong = async (req, res) => {
         return res.status(400).json({ errors: errors.array() });
     }
 
-    const { title, artist, duration, genres, subGenres, collectionType, hasVocals, bpm, key } = req.body;
+    // --- FIX: Removed 'artist' from this line ---
+    const { title, duration, genres, subGenres, collectionType, hasVocals, bpm, key } = req.body;
 
     try {
         let song = await Song.findById(req.params.id);
@@ -100,7 +98,7 @@ exports.updateSong = async (req, res) => {
 
         const updateData = {
             title,
-            artist,
+            // artist field is omitted, will not be changed
             duration,
             genres: ensureArray(genres),
             subGenres: ensureArray(subGenres),

@@ -1,11 +1,12 @@
-// vara-admin-backend/routes/songs.js
+// vara-admin-backend/routes/songRoutes.js
 
 const express = require('express');
 const router = express.Router();
 const { check } = require('express-validator');
 const songController = require('../controllers/songController');
-const auth = require('../middleware/auth');
-const upload = require('../middleware/multer');
+// --- FINAL FIX: Using the correct filenames from your repository ---
+const auth = require('../middleware/authMiddleware');
+const upload = require('../middleware/uploadMiddleware');
 
 // @route   GET api/songs
 // @desc    Get all songs

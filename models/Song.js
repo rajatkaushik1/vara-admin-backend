@@ -1,4 +1,5 @@
-// models/Song.js
+// vara-admin-backend/models/Song.js
+
 const mongoose = require('mongoose');
 
 const songSchema = new mongoose.Schema({
@@ -6,6 +7,33 @@ const songSchema = new mongoose.Schema({
         type: String,
         required: true,
         trim: true
+    },
+    artist: {
+        type: String,
+        required: true,
+        trim: true
+    },
+    duration: {
+        type: Number, // Duration in seconds
+        required: true
+    },
+    genres: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Genre',
+        required: true
+    }],
+    subGenres: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'SubGenre'
+    }],
+    moods: [{
+        type: String,
+        trim: true
+    }],
+    collectionType: {
+        type: String,
+        enum: ['free', 'premium', 'paid'],
+        required: true
     },
     imageUrl: {
         type: String,
@@ -15,26 +43,25 @@ const songSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    // NEW FIELD: Added duration here
-    duration: {
-        type: Number, // Store duration in seconds
-        default: 0,   // Default to 0 if not provided, will be updated on upload
+    // --- NEW FIELDS START ---
+    hasVocals: {
+        type: Boolean,
+        default: false
     },
-    genres: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Genre',
-        required: true
-    }],
-    subGenres: [{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'SubGenre',
-        required: true
-    }],
-    collectionType: {
+    bpm: {
+        type: Number,
+        required: [true, 'BPM is a required field.']
+    },
+    key: {
         type: String,
-        required: true,
-        enum: ['free', 'paid']
+        required: [true, 'Music key is a required field.'],
+        trim: true
     },
-}, { timestamps: true });
+    // --- NEW FIELDS END ---
+    createdAt: {
+        type: Date,
+        default: Date.now
+    }
+});
 
 module.exports = mongoose.model('Song', songSchema);

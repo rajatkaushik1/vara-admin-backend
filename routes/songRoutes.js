@@ -4,62 +4,68 @@ const express = require('express');
 const router = express.Router();
 const { check } = require('express-validator');
 const songController = require('../controllers/songController');
-// --- FIX: REMOVED the line trying to import a non-existent file ---
 const upload = require('../middleware/uploadMiddleware');
+// const auth = require('../middleware/authMiddleware'); // Uncomment this when you re-enable authentication
 
 // @route   GET api/songs
 // @desc    Get all songs
-// @access  Public
-router.get('/', songController.getAllSongs);
+// @access  Private (should be)
+router.get(
+    '/',
+    // auth, // Add auth middleware here
+    songController.getAllSongs
+);
 
 // @route   POST api/songs
-// @desc    Create a song
-// @access  Public (Temporarily, to ensure server runs)
+// @desc    Create a new song with file uploads
+// @access  Private (should be)
 router.post(
     '/',
+    // auth, // Add auth middleware here
+    // 1. Multer middleware runs first to handle file uploads
+    upload.fields([
+        { name: 'image', maxCount: 1 },
+        { name: 'audio', maxCount: 1 }
+    ]),
+    // 2. Validation middleware runs next on the text fields in the FormData
     [
-        // auth middleware removed
-        upload.fields([{ name: 'image', maxCount: 1 }, { name: 'audio', maxCount: 1 }]),
-        [
-            check('title', 'Title is required').not().isEmpty(),
-            check('duration', 'Duration is required and must be a number').isNumeric(),
-            check('genres', 'Genres are required').not().isEmpty(),
-            check('collectionType', 'Collection type is required').isIn(['free', 'paid']),
-            check('bpm', 'BPM is required and must be a number').not().isEmpty().isNumeric(),
-            check('key', 'Music key is required').not().isEmpty(),
-            check('hasVocals', 'Has Vocals must be a boolean').optional().isBoolean()
-        ]
+        check('title', 'Title is required').not().isEmpty(),
+        check('duration', 'Duration is required').not().isEmpty().isNumeric(),
+        check('genres', 'Genres are required').not().isEmpty(),
+        check('collectionType', 'Collection type is required').isIn(['free', 'paid']),
+        check('bpm', 'BPM is required').not().isEmpty().isNumeric(),
+        check('key', 'Music key is required').not().isEmpty(),
+        check('hasVocals', 'hasVocals must be a boolean').isBoolean()
     ],
+    // 3. Controller runs last
     songController.createSong
 );
 
 // @route   PUT api/songs/:id
-// @desc    Update a song
-// @access  Public (Temporarily, to ensure server runs)
+// @desc    Update a song's metadata (no file changes)
+// @access  Private (should be)
 router.put(
     '/:id',
+    // auth, // Add auth middleware here
+    // **FIX**: Removed `upload.fields(...)` middleware from this route.
+    // The update operation handles a JSON payload, not FormData, so no file upload middleware is needed.
     [
-        // auth middleware removed
-        upload.fields([{ name: 'image', maxCount: 1 }, { name: 'audio', maxCount: 1 }]),
-        [
-            check('title', 'Title is required').not().isEmpty(),
-            check('duration', 'Duration is required and must be a number').isNumeric(),
-            check('genres', 'Genres are required').not().isEmpty(),
-            check('collectionType', 'Collection type is required').isIn(['free', 'paid']),
-            check('bpm', 'BPM is required and must be a number').not().isEmpty().isNumeric(),
-            check('key', 'Music key is required').not().isEmpty(),
-            check('hasVocals', 'Has Vocals must be a boolean').optional().isBoolean()
-        ]
+        check('title', 'Title is required').optional().not().isEmpty(),
+        check('genres', 'Genres must be an array').optional().isArray(),
+        check('collectionType', 'Collection type is required').optional().isIn(['free', 'paid']),
+        check('bpm', 'BPM must be a number').optional().isNumeric(),
+        check('key', 'Music key is required').optional().not().isEmpty(),
+        check('hasVocals', 'hasVocals must be a boolean').optional().isBoolean()
     ],
     songController.updateSong
 );
 
 // @route   DELETE api/songs/:id
 // @desc    Delete a song
-// @access  Public (Temporarily, to ensure server runs)
+// @access  Private (should be)
 router.delete(
-    '/:id', 
-    // auth middleware removed
+    '/:id',
+    // auth, // Add auth middleware here
     songController.deleteSong
 );
 

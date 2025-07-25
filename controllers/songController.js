@@ -146,7 +146,7 @@ exports.updateSong = async (req, res) => {
 // Delete a song
 exports.deleteSong = async (req, res) => {
     try {
-        const song = await Song.findById(_req.params.id);
+        const song = await Song.findById(req.params.id);
         if (!song) {
             return res.status(404).json({ msg: 'Song not found' });
         }

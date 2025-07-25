@@ -1,11 +1,11 @@
 // vara-admin-backend/controllers/songController.js
 
 const Song = require('../models/Song');
-const Genre = require('../models/Genre');
+const Genre =require('../models/Genre');
 const SubGenre = require('../models/SubGenre');
 const { validationResult } = require('express-validator');
-// --- FIX: Corrected path to cloudinary config ---
-const cloudinary = require('../cloudinary');
+// --- FIX: Corrected path to go up two directories to the project root ---
+const cloudinary = require('../../cloudinary');
 
 // Get all songs with populated genres and subgenres
 exports.getAllSongs = async (req, res) => {
@@ -146,7 +146,7 @@ exports.updateSong = async (req, res) => {
 // Delete a song
 exports.deleteSong = async (req, res) => {
     try {
-        const song = await Song.findById(req.params.id);
+        const song = await Song.findById(_req.params.id);
         if (!song) {
             return res.status(404).json({ msg: 'Song not found' });
         }

@@ -5,8 +5,16 @@ const Genre = require('../models/Genre');
 const SubGenre = require('../models/SubGenre');
 const { validationResult } = require('express-validator');
 
-// --- FINAL FIX: Correct path is one directory up ---
-const cloudinary = require('../cloudinary');
+// --- FINAL FIX: Configure Cloudinary directly in this file ---
+const cloudinary = require('cloudinary').v2;
+
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+// --- END OF FIX ---
+
 
 // Get all songs with populated genres and subgenres
 exports.getAllSongs = async (req, res) => {
@@ -68,7 +76,7 @@ exports.createSong = async (req, res) => {
         res.json(song);
 
     } catch (err) {
-        console.error(err.message);
+        console.error('Error in createSong:', err);
         res.status(500).send('Server Error');
     }
 };
@@ -131,7 +139,7 @@ exports.updateSong = async (req, res) => {
         res.json(song);
 
     } catch (err) {
-        console.error(err.message);
+        console.error('Error in updateSong:', err);
         res.status(500).send('Server Error');
     }
 };
@@ -148,7 +156,7 @@ exports.deleteSong = async (req, res) => {
 
         res.json({ msg: 'Song removed' });
     } catch (err) {
-        console.error(err.message);
+        console.error('Error in deleteSong:', err);
         res.status(500).send('Server Error');
     }
 };

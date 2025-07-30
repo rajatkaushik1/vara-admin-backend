@@ -3,6 +3,8 @@ const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
 const dotenv = require("dotenv");
+const favoritesRoutes = require('./routes/favoritesRoutes');
+
 // const path = require("path"); // No longer strictly needed if not serving local static files
 
 dotenv.config();
@@ -44,12 +46,14 @@ app.use(express.json());
 const genreRoutes = require("./routes/genreRoutes");
 const subGenreRoutes = require("./routes/subGenreRoutes");
 const songRoutes = require("./routes/songRoutes");
-const authRoutes = require("./routes/authRoutes"); // ADDED: Import auth routes
+const authRoutes = require("./routes/authRoutes");
+// ADDED: Import auth routes
 
 app.use("/api/genres", genreRoutes);
 app.use("/api/subgenres", subGenreRoutes);
 app.use("/api/songs", songRoutes);
-app.use("/api/auth", authRoutes); // ADDED: Use auth routes
+app.use("/api/auth", authRoutes); 
+app.use('/api/user/favorites', favoritesRoutes);// ADDED: Use auth routes
 
 // --- Simple Root Route for Health Check ---
 // Render (and other services) sometimes do a quick check on the root path ('/')

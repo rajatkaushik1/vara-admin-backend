@@ -1,21 +1,65 @@
 // routes/favoritesRoutes.js
 const express = require('express');
 const router = express.Router();
-const { getFavorites, addFavorite, removeFavorite } = require('../controllers/favoritesController');
+const User = require('../models/User');
 
-// Middleware to check if user is authenticated (you might need to adjust this)
-const authenticateUser = (req, res, next) => {
-  if (req.session && req.session.user) {
-    req.user = req.session.user;
-    next();
-  } else {
-    res.status(401).json({ message: 'Not authenticated' });
+// Middleware to check authentication
+const requireAuth = (req, res, next) => {
+  if (!req.session || !req.session.user) {
+    return res.status(401).json({ message: 'Authentication required' });
   }
+  next();
 };
 
-// Routes
-router.get('/', authenticateUser, getFavorites);
-router.post('/', authenticateUser, addFavorite);
-router.delete('/', authenticateUser, removeFavorite);
+// Get user's favorites
+router.get('/', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.session.user.id).populate('favorites');
+    res.json(user.favorites || []);
+  } catch (error) {
+    console.error('Error fetching favorites:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Add song to favorites
+router.post('/', requireAuth, async (req, res) => {
+  try {
+    const { songId } = req.body;
+    const user = await User.findById(req.session.user.id);
+    
+    if (!user.favorites) {
+      user.favorites = [];
+    }
+    
+    if (!user.favorites.includes(songId)) {
+      user.favorites.push(songId);
+      await user.save();
+    }
+    
+    res.json({ message: 'Song added to favorites' });
+  } catch (error) {
+    console.error('Error adding favorite:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Remove song from favorites
+router.delete('/', requireAuth, async (req, res) => {
+  try {
+    const { songId } = req.body;
+    const user = await User.findById(req.session.user.id);
+    
+    if (user.favorites) {
+      user.favorites = user.favorites.filter(id => id.toString() !== songId);
+      await user.save();
+    }
+    
+    res.json({ message: 'Song removed from favorites' });
+  } catch (error) {
+    console.error('Error removing favorite:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 module.exports = router;

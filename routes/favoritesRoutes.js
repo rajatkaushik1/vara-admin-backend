@@ -14,7 +14,9 @@ const requireAuth = (req, res, next) => {
 // Get user's favorites
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const user = await User.findById(req.session.user.id).populate('favorites');
+    const user = await User.findById(req.session.user.id)
+      .populate('favorites', 'title artist imageUrl audioUrl collectionType duration');
+    
     res.json(user.favorites || []);
   } catch (error) {
     console.error('Error fetching favorites:', error);
@@ -37,7 +39,7 @@ router.post('/', requireAuth, async (req, res) => {
       await user.save();
     }
     
-    res.json({ message: 'Song added to favorites' });
+    res.json({ message: 'Song added to favorites', favorites: user.favorites });
   } catch (error) {
     console.error('Error adding favorite:', error);
     res.status(500).json({ message: 'Server error' });
@@ -45,9 +47,9 @@ router.post('/', requireAuth, async (req, res) => {
 });
 
 // Remove song from favorites
-router.delete('/', requireAuth, async (req, res) => {
+router.delete('/:songId', requireAuth, async (req, res) => {
   try {
-    const { songId } = req.body;
+    const { songId } = req.params;
     const user = await User.findById(req.session.user.id);
     
     if (user.favorites) {
@@ -55,7 +57,7 @@ router.delete('/', requireAuth, async (req, res) => {
       await user.save();
     }
     
-    res.json({ message: 'Song removed from favorites' });
+    res.json({ message: 'Song removed from favorites', favorites: user.favorites });
   } catch (error) {
     console.error('Error removing favorite:', error);
     res.status(500).json({ message: 'Server error' });

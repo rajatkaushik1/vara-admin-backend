@@ -4,7 +4,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const favoritesRoutes = require('./routes/favoritesRoutes');
-
+const songRoutes = require('./routes/songRoutes')
 // const path = require("path"); // No longer strictly needed if not serving local static files
 
 dotenv.config();
@@ -54,6 +54,7 @@ app.use("/api/subgenres", subGenreRoutes);
 app.use("/api/songs", songRoutes);
 app.use("/api/auth", authRoutes); 
 app.use('/api/user/favorites', favoritesRoutes);// ADDED: Use auth routes
+
 
 // --- Simple Root Route for Health Check ---
 // Render (and other services) sometimes do a quick check on the root path ('/')

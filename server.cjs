@@ -30,52 +30,37 @@ if (!process.env.MONGODB_URI) {
 const uriStart = process.env.MONGODB_URI.split('@')[0].substring(0, 20);
 console.log('MongoDB URI format check:', uriStart + '...');
 
-// --- CORS CONFIGURATION ---
-const allowedOrigins = [
-    'http://localhost:5173',
-    'http://localhost:3000',
-    'https://vara-admin-backend.onrender.com',
-    'https://vara-admin-frontend.onrender.com',
-    'https://vara-user-frontend.onrender.com'
-];
-
+// --- SIMPLIFIED AND PERMISSIVE CORS CONFIGURATION ---
 app.use(cors({
     origin: function (origin, callback) {
-        // Allow requests with no origin
-        if (!origin) return callback(null, true);
-        
-        // Allow localhost for development
-        if (origin && origin.includes('localhost')) {
-            return callback(null, true);
-        }
-        
-        // Allow render.com domains
-        if (origin && origin.includes('render.com')) {
-            return callback(null, true);
-        }
-        
-        // Check allowed origins
-        if (allowedOrigins.includes(origin)) {
-            return callback(null, true);
-        }
-        
-        console.log(`⚠️ CORS rejected: ${origin}`);
-        return callback(null, true); // Be permissive to avoid breaking
+        // Always allow requests (for debugging)
+        console.log(`🌐 CORS Request from origin: ${origin || 'no-origin'}`);
+        return callback(null, true);
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Origin', 'Accept'],
+    exposedHeaders: ['Content-Length', 'X-Kuma-Revision'],
+    optionsSuccessStatus: 200
 }));
 
-app.options('*', cors());
+// Handle preflight requests explicitly
+app.options('*', (req, res) => {
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,PATCH');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Origin, Accept');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.sendStatus(200);
+});
 
 // --- MIDDLEWARE ---
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Request logging
+// Enhanced request logging
 app.use((req, res, next) => {
     console.log(`${req.method} ${req.path} - Origin: ${req.get('Origin') || 'none'}`);
+    console.log('Headers:', req.headers);
     next();
 });
 
@@ -109,7 +94,7 @@ app.get('/api/health', (req, res) => {
 console.log('🔄 Attempting MongoDB connection...');
 
 mongoose.connect(process.env.MONGODB_URI, {
-    serverSelectionTimeoutMS: 10000, // 10 second timeout
+    serverSelectionTimeoutMS: 10000,
     socketTimeoutMS: 45000,
     maxPoolSize: 10
 })
@@ -123,7 +108,7 @@ mongoose.connect(process.env.MONGODB_URI, {
     const server = app.listen(port, host, () => {
         console.log(`🚀 Server successfully started on http://${host}:${port}`);
         console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
-        console.log(`🔐 CORS enabled for: ${allowedOrigins.join(', ')}`);
+        console.log(`🔐 CORS enabled for ALL origins (development mode)`);
     });
 
     server.on('error', (err) => {

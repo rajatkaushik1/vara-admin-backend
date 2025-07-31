@@ -13,29 +13,57 @@ dotenv.config();
 
 const app = express();
 
-// --- START CORS CONFIGURATION ---
+// --- IMPROVED CORS CONFIGURATION ---
 const allowedOrigins = [
-    'http://localhost:5173',
+    'http://localhost:5173',  // Your local frontend development
+    'http://localhost:3000',  // Alternative local port
     'https://vara-admin-backend.onrender.com',
-    'https://vara-admin-frontend.onrender.com'
+    'https://vara-admin-frontend.onrender.com',
+    'https://vara-user-frontend.onrender.com'  // Added user frontend
 ];
+
+// More permissive CORS configuration for development
 app.use(cors({
     origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps, Postman, etc.)
         if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) === -1) {
-            const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-            return callback(new Error(msg), false);
+        
+        // Check if origin is in allowed list
+        if (allowedOrigins.includes(origin)) {
+            return callback(null, true);
         }
-        return callback(null, true);
+        
+        // For development: Allow localhost on any port
+        if (origin && origin.startsWith('http://localhost:')) {
+            return callback(null, true);
+        }
+        
+        // Log rejected origins for debugging
+        console.log(`❌ CORS rejected origin: ${origin}`);
+        const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+        return callback(new Error(msg), false);
     },
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
+
+// Handle preflight requests
+app.options('*', cors());
+
 // --- END CORS CONFIGURATION ---
 
 // Middleware
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // Increased limit for file uploads
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Routes - REMOVE THE DUPLICATE DECLARATIONS HERE
+// Add request logging for debugging
+app.use((req, res, next) => {
+    console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - Origin: ${req.get('Origin') || 'none'}`);
+    next();
+});
+
+// Routes
 app.use("/api/genres", genreRoutes);
 app.use("/api/subgenres", subGenreRoutes);
 app.use("/api/songs", songRoutes);
@@ -43,48 +71,85 @@ app.use("/api/auth", authRoutes);
 app.use('/api/user/favorites', favoritesRoutes);
 app.use('/api/user', userRoutes);
 
-// --- Simple Root Route for Health Check ---
+// --- Enhanced Root Route for Health Check ---
 app.get('/', (req, res) => {
-    res.status(200).send('Vara Backend is running!');
+    res.status(200).json({
+        message: 'Vara Admin Backend is running!',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development',
+        cors_origins: allowedOrigins
+    });
 });
 
-// --- START PORT BINDING FIX FOR RENDER ---
-mongoose.connect(process.env.MONGODB_URI, {})
+// API status endpoint
+app.get('/api/status', (req, res) => {
+    res.status(200).json({
+        status: 'healthy',
+        services: {
+            mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+            cors: 'enabled'
+        },
+        timestamp: new Date().toISOString()
+    });
+});
+
+// --- IMPROVED MongoDB CONNECTION AND SERVER START ---
+mongoose.connect(process.env.MONGODB_URI, {
+    serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+    socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
+})
 .then(() => {
     console.log("✅ Connected to MongoDB");
+    console.log("✅ Database:", mongoose.connection.db.databaseName);
 
-    const renderPort = process.env.PORT;
+    const renderPort = process.env.PORT || 5000;
     const renderHost = '0.0.0.0';
 
-    if (!renderPort) {
-        console.error("❌ PORT environment variable is not set. This is critical for Render deployment.");
-        process.exit(1);
-    }
-
-    app.listen(renderPort, renderHost, () => {
+    const server = app.listen(renderPort, renderHost, () => {
         console.log(`🚀 Server running on http://${renderHost}:${renderPort}`);
-    }).on('error', (err) => {
+        console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
+        console.log(`🔐 CORS enabled for origins:`, allowedOrigins);
+    });
+
+    // Handle server errors
+    server.on('error', (err) => {
         console.error("❌ Server failed to start due to port binding:", err);
         if (err.code === 'EADDRINUSE') {
-            console.error("The port is already in use by another process. This should not happen on Render.");
+            console.error("The port is already in use by another process.");
         } else if (err.code === 'EACCES') {
             console.error("Permission denied to bind to port.");
         }
         process.exit(1);
     });
+
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+        console.log('👋 SIGTERM received, shutting down gracefully');
+        server.close(() => {
+            mongoose.connection.close();
+            process.exit(0);
+        });
+    });
+
 })
 .catch((err) => {
     console.error("❌ MongoDB connection error:", err);
     process.exit(1);
 });
 
-// --- Global Error Handling ---
+// --- Enhanced Global Error Handling ---
 process.on('unhandledRejection', (reason, promise) => {
     console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-    process.exit(1);
+    // Don't exit immediately in development
+    if (process.env.NODE_ENV === 'production') {
+        process.exit(1);
+    }
 });
 
 process.on('uncaughtException', (err) => {
     console.error('❌ Uncaught Exception:', err);
     process.exit(1);
 });
+
+// Export app for testing
+module.exports = app;

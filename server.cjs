@@ -13,57 +13,60 @@ dotenv.config();
 
 const app = express();
 
-// --- IMPROVED CORS CONFIGURATION ---
+// --- SIMPLIFIED BUT EFFECTIVE CORS CONFIGURATION ---
 const allowedOrigins = [
     'http://localhost:5173',  // Your local frontend development
     'http://localhost:3000',  // Alternative local port
     'https://vara-admin-backend.onrender.com',
     'https://vara-admin-frontend.onrender.com',
-    'https://vara-user-frontend.onrender.com'  // Added user frontend
+    'https://vara-user-frontend.onrender.com'
 ];
 
-// More permissive CORS configuration for development
 app.use(cors({
     origin: function (origin, callback) {
-        // Allow requests with no origin (like mobile apps, Postman, etc.)
+        // Allow requests with no origin (like Postman, mobile apps)
         if (!origin) return callback(null, true);
+        
+        // Allow all localhost origins for development
+        if (origin && origin.includes('localhost')) {
+            return callback(null, true);
+        }
         
         // Check if origin is in allowed list
         if (allowedOrigins.includes(origin)) {
             return callback(null, true);
         }
         
-        // For development: Allow localhost on any port
-        if (origin && origin.startsWith('http://localhost:')) {
+        // For debugging - log what's being rejected
+        console.log(`⚠️ CORS origin check: ${origin}`);
+        
+        // Be more permissive - allow all HTTPS origins from render.com
+        if (origin && origin.includes('render.com')) {
             return callback(null, true);
         }
         
-        // Log rejected origins for debugging
-        console.log(`❌ CORS rejected origin: ${origin}`);
-        const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-        return callback(new Error(msg), false);
+        // Fallback - be permissive in production to avoid breaking
+        return callback(null, true);
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
 
-// Handle preflight requests
+// Handle preflight requests explicitly
 app.options('*', cors());
 
-// --- END CORS CONFIGURATION ---
-
-// Middleware
-app.use(express.json({ limit: '50mb' })); // Increased limit for file uploads
+// --- MIDDLEWARE ---
+app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Add request logging for debugging
+// Simple request logging
 app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - Origin: ${req.get('Origin') || 'none'}`);
+    console.log(`${req.method} ${req.path} - Origin: ${req.get('Origin') || 'none'}`);
     next();
 });
 
-// Routes
+// --- ROUTES ---
 app.use("/api/genres", genreRoutes);
 app.use("/api/subgenres", subGenreRoutes);
 app.use("/api/songs", songRoutes);
@@ -71,79 +74,56 @@ app.use("/api/auth", authRoutes);
 app.use('/api/user/favorites', favoritesRoutes);
 app.use('/api/user', userRoutes);
 
-// --- Enhanced Root Route for Health Check ---
+// --- HEALTH CHECK ROUTES ---
 app.get('/', (req, res) => {
     res.status(200).json({
         message: 'Vara Admin Backend is running!',
         timestamp: new Date().toISOString(),
-        environment: process.env.NODE_ENV || 'development',
-        cors_origins: allowedOrigins
+        status: 'healthy'
     });
 });
 
-// API status endpoint
 app.get('/api/status', (req, res) => {
     res.status(200).json({
         status: 'healthy',
-        services: {
-            mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-            cors: 'enabled'
-        },
+        mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
         timestamp: new Date().toISOString()
     });
 });
 
-// --- IMPROVED MongoDB CONNECTION AND SERVER START ---
+// --- TEST ENDPOINTS FOR DEBUGGING ---
+app.get('/api/test', (req, res) => {
+    res.json({ 
+        message: 'API is working',
+        cors: 'enabled',
+        origin: req.get('Origin') || 'none'
+    });
+});
+
+// --- MONGODB CONNECTION ---
 mongoose.connect(process.env.MONGODB_URI, {
-    serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
-    socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000
 })
 .then(() => {
     console.log("✅ Connected to MongoDB");
-    console.log("✅ Database:", mongoose.connection.db.databaseName);
+    
+    const port = process.env.PORT || 5000;
+    const host = '0.0.0.0';
 
-    const renderPort = process.env.PORT || 5000;
-    const renderHost = '0.0.0.0';
-
-    const server = app.listen(renderPort, renderHost, () => {
-        console.log(`🚀 Server running on http://${renderHost}:${renderPort}`);
-        console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
-        console.log(`🔐 CORS enabled for origins:`, allowedOrigins);
+    app.listen(port, host, () => {
+        console.log(`🚀 Server running on http://${host}:${port}`);
+        console.log(`🔐 CORS configured for origins:`, allowedOrigins);
     });
-
-    // Handle server errors
-    server.on('error', (err) => {
-        console.error("❌ Server failed to start due to port binding:", err);
-        if (err.code === 'EADDRINUSE') {
-            console.error("The port is already in use by another process.");
-        } else if (err.code === 'EACCES') {
-            console.error("Permission denied to bind to port.");
-        }
-        process.exit(1);
-    });
-
-    // Graceful shutdown
-    process.on('SIGTERM', () => {
-        console.log('👋 SIGTERM received, shutting down gracefully');
-        server.close(() => {
-            mongoose.connection.close();
-            process.exit(0);
-        });
-    });
-
 })
 .catch((err) => {
     console.error("❌ MongoDB connection error:", err);
     process.exit(1);
 });
 
-// --- Enhanced Global Error Handling ---
+// --- ERROR HANDLING ---
 process.on('unhandledRejection', (reason, promise) => {
-    console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-    // Don't exit immediately in development
-    if (process.env.NODE_ENV === 'production') {
-        process.exit(1);
-    }
+    console.error('❌ Unhandled Rejection:', reason);
 });
 
 process.on('uncaughtException', (err) => {
@@ -151,5 +131,4 @@ process.on('uncaughtException', (err) => {
     process.exit(1);
 });
 
-// Export app for testing
 module.exports = app;

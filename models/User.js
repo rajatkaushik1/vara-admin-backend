@@ -3,7 +3,6 @@ const mongoose = require('mongoose');
 const userSchema = new mongoose.Schema({
   googleId: {
     type: String,
-    unique: true,
     sparse: true,
     required: false
   },
@@ -46,11 +45,10 @@ const userSchema = new mongoose.Schema({
       default: Date.now
     }
   }],
-  // Optional admin fields (if needed for admin users)
+  // OAuth users will have username: null, admin users will have actual usernames
   username: {
     type: String,
     required: false,
-    unique: true,
     sparse: true
   },
   password: {
@@ -66,12 +64,12 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Ensure no duplicate indexes
+// FIXED: Proper indexes that handle OAuth users with null usernames
 userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ googleId: 1 }, { unique: true, sparse: true });
-userSchema.index({ username: 1 }, { unique: true, sparse: true });
+// Remove unique constraint on username to allow multiple null values for OAuth users
+userSchema.index({ username: 1 }, { sparse: true });
 
-// Keep your existing password methods for admin users
 const bcrypt = require('bcryptjs');
 
 userSchema.pre('save', async function(next) {

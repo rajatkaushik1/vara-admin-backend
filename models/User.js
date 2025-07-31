@@ -1,57 +1,94 @@
-// C:\Users\Dell\Desktop\vara-admin\models\User.js
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs'); // Import bcryptjs for password hashing
 
 const userSchema = new mongoose.Schema({
-  username: {
+  googleId: {
+    type: String,
+    unique: true,
+    sparse: true,
+    required: false
+  },
+  email: {
     type: String,
     required: true,
-    unique: true, // Ensure usernames are unique
-    trim: true,
-    minlength: 3
+    unique: true
   },
-  password: {
+  name: {
     type: String,
-    required: true,
-    minlength: 6 // Enforce a minimum password length
+    required: true
   },
-  role: { // To distinguish between different types of users (e.g., 'admin', 'editor', 'user')
+  picture: {
+    type: String
+  },
+  is_premium: {
+    type: Boolean,
+    default: false
+  },
+  subscription_type: {
     type: String,
-    enum: ['admin', 'editor', 'user'],
-    default: 'admin' // Default to 'admin' for your admin panel
+    enum: ['free', 'premium'],
+    default: 'free'
   },
-  // ADD: Favorites field to store user's favorite songs
   favorites: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Song'
-  }]
+  }],
+  downloads: [{
+    songId: {
+      type: String,
+      required: true
+    },
+    songTitle: {
+      type: String,
+      required: true
+    },
+    downloadedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
+  // Optional admin fields (if needed for admin users)
+  username: {
+    type: String,
+    required: false,
+    unique: true,
+    sparse: true
+  },
+  password: {
+    type: String,
+    required: false
+  },
+  role: {
+    type: String,
+    enum: ['admin', 'editor', 'user'],
+    default: 'user'
+  }
 }, {
-  timestamps: true // Adds createdAt and updatedAt timestamps automatically
+  timestamps: true
 });
 
-// --- Mongoose Middleware: Hash password before saving ---
-// 'pre' hook runs before a document is saved to the database.
-// 'this' refers to the document being saved.
+// Ensure no duplicate indexes
+userSchema.index({ email: 1 }, { unique: true });
+userSchema.index({ googleId: 1 }, { unique: true, sparse: true });
+userSchema.index({ username: 1 }, { unique: true, sparse: true });
+
+// Keep your existing password methods for admin users
+const bcrypt = require('bcryptjs');
+
 userSchema.pre('save', async function(next) {
-  // Only hash the password if it has been modified (or is new)
-  if (!this.isModified('password')) {
+  if (!this.isModified('password') || !this.password) {
     return next();
   }
   try {
-    // Generate a salt (random string) to add to the password before hashing
-    const salt = await bcrypt.genSalt(10); // 10 is the cost factor (higher = more secure, slower)
-    // Hash the password with the hashed password
+    const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
-    next(); // Proceed with saving the document
+    next();
   } catch (error) {
-    next(error); // Pass any errors to the next middleware/error handler
+    next(error);
   }
 });
 
-// --- Mongoose Method: Compare password for login ---
-// Add a method to the userSchema to compare a given password with the hashed password
 userSchema.methods.matchPassword = async function(enteredPassword) {
-  // Use bcrypt.compare to compare the entered password with the hashed password in the database
+  if (!this.password) return false;
   return await bcrypt.compare(enteredPassword, this.password);
 };
 

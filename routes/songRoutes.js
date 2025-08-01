@@ -2,6 +2,21 @@
 const express = require('express');
 const router = express.Router();
 const Song = require('../models/Song');
+// Import the controller functions
+const { getAllSongs, createSong, updateSong, deleteSong } = require('../controllers/songController');
+const upload = require('../middleware/uploadMiddleware');
+
+// Create a new song (POST with file uploads)
+router.post('/', upload.fields([
+  { name: 'image', maxCount: 1 },
+  { name: 'audio', maxCount: 1 }
+]), createSong);
+
+// Update a song (PUT - JSON only, no file uploads for now)
+router.put('/:id', updateSong);
+
+// Delete a song (DELETE)
+router.delete('/:id', deleteSong);
 
 // Get all songs with populated genre and subgenre data
 router.get('/', async (req, res) => {

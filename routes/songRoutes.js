@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const Song = require('../models/Song');
 // Import the controller functions
-const { getAllSongs, createSong, updateSong, deleteSong } = require('../controllers/songController');
+const { getAllSongs, createSong, updateSong, deleteSong, trackInteraction, getTrendingSongs } = require('../controllers/songController');
 const upload = require('../middleware/uploadMiddleware');
 
 // Create a new song (POST with file uploads)
@@ -17,6 +17,13 @@ router.put('/:id', updateSong);
 
 // Delete a song (DELETE)
 router.delete('/:id', deleteSong);
+
+// --- NEW: TRACKING ENDPOINTS ---
+// Track user interactions (play, download, favorite, seek)
+router.post('/track/:songId', trackInteraction);
+
+// Get trending songs
+router.get('/trending', getTrendingSongs);
 
 // Get all songs with populated genre and subgenre data
 router.get('/', async (req, res) => {

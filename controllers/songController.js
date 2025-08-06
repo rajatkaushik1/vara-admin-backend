@@ -1,6 +1,7 @@
 // vara-admin-backend/controllers/songController.js
 
 const Song = require('../models/Song');
+const SongAnalytics = require('../models/SongAnalytics');
 const { validationResult } = require('express-validator');
 const cloudinary = require('cloudinary').v2;
 
@@ -178,5 +179,131 @@ exports.deleteSong = async (req, res) => {
     } catch (err) {
         console.error('Error in deleteSong:', err);
         res.status(500).send('Server Error');
+    }
+};
+
+// --- NEW: TRACKING FUNCTIONALITY ---
+
+// Track user interactions (play, download, favorite, seek)
+exports.trackInteraction = async (req, res) => {
+    try {
+        const { songId } = req.params;
+        const { 
+            interactionType, 
+            playData, 
+            seekData, 
+            userId, 
+            userEmail,
+            metadata 
+        } = req.body;
+
+        // Validate required fields
+        if (!interactionType || !userId) {
+            return res.status(400).json({ 
+                message: 'interactionType and userId are required' 
+            });
+        }
+
+        // Find the song
+        const song = await Song.findById(songId);
+        if (!song) {
+            return res.status(404).json({ message: 'Song not found' });
+        }
+
+        // Create detailed analytics record
+        const analyticsRecord = new SongAnalytics({
+            songId,
+            userId,
+            userEmail,
+            interactionType,
+            playData,
+            seekData,
+            metadata: {
+                userAgent: req.headers['user-agent'],
+                ipAddress: req.ip || req.connection.remoteAddress,
+                ...metadata
+            }
+        });
+
+        await analyticsRecord.save();
+
+        // Update song analytics based on interaction type
+        const updateData = {};
+        
+        switch (interactionType) {
+            case 'play':
+                updateData['analytics.totalPlays'] = song.analytics.totalPlays + 1;
+                updateData['analytics.weeklyPlays'] = song.analytics.weeklyPlays + 1;
+                updateData['analytics.lastPlayedAt'] = new Date();
+                
+                // Add playtime if provided
+                if (playData && playData.duration) {
+                    const additionalHours = playData.duration / 3600; // Convert seconds to hours
+                    updateData['analytics.totalPlaytimeHours'] = song.analytics.totalPlaytimeHours + additionalHours;
+                }
+                break;
+                
+            case 'download':
+                updateData['analytics.totalDownloads'] = song.analytics.totalDownloads + 1;
+                updateData['analytics.weeklyDownloads'] = song.analytics.weeklyDownloads + 1;
+                break;
+                
+            case 'favorite':
+                updateData['analytics.totalFavorites'] = song.analytics.totalFavorites + 1;
+                updateData['analytics.weeklyFavorites'] = song.analytics.weeklyFavorites + 1;
+                break;
+                
+            case 'unfavorite':
+                updateData['analytics.totalFavorites'] = Math.max(0, song.analytics.totalFavorites - 1);
+                updateData['analytics.weeklyFavorites'] = Math.max(0, song.analytics.weeklyFavorites - 1);
+                break;
+        }
+
+        // Calculate new trending score: (Plays × 1) + (Downloads × 2) + (Favorites × 1.5)
+        if (interactionType !== 'seek') {
+            const newPlays = updateData['analytics.weeklyPlays'] || song.analytics.weeklyPlays;
+            const newDownloads = updateData['analytics.weeklyDownloads'] || song.analytics.weeklyDownloads;
+            const newFavorites = updateData['analytics.weeklyFavorites'] || song.analytics.weeklyFavorites;
+            
+            updateData['analytics.trendingScore'] = (newPlays * 1) + (newDownloads * 2) + (newFavorites * 1.5);
+            updateData['analytics.lastTrendingUpdate'] = new Date();
+        }
+
+        // Update the song
+        await Song.findByIdAndUpdate(songId, { $set: updateData });
+
+        res.json({ 
+            message: 'Interaction tracked successfully',
+            trendingScore: updateData['analytics.trendingScore'] || song.analytics.trendingScore
+        });
+
+    } catch (error) {
+        console.error('Error tracking interaction:', error);
+        res.status(500).json({ message: 'Server error while tracking interaction' });
+    }
+};
+
+// Get trending songs
+exports.getTrendingSongs = async (req, res) => {
+    try {
+        // Get songs with highest trending scores
+        const trendingSongs = await Song.find({
+            'analytics.trendingScore': { $gt: 0 } // Only songs with some activity
+        })
+        .populate('genres', 'name')
+        .populate('subGenres', 'name')
+        .sort({ 'analytics.trendingScore': -1 })
+        .limit(12); // Return top 12 trending songs
+
+        // Only return trending section if we have at least 10 songs
+        if (trendingSongs.length < 10) {
+            return res.json([]);
+        }
+
+        res.json(trendingSongs);
+
+    } catch (error) {
+        console.error('Error fetching trending songs:', error);
+        res.status(500).json({ message: 'Server error while fetching trending songs' });
     }
 };

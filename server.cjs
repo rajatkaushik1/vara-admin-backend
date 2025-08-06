@@ -53,6 +53,46 @@ app.options('*', (req, res) => {
     res.sendStatus(200);
 });
 
+// --- ENHANCED CORS CONFIGURATION FOR ADMIN FRONTEND ---
+app.use(cors({
+    origin: function (origin, callback) {
+        // Define allowed origins
+        const allowedOrigins = [
+            'https://vara-admin-frontend.onrender.com', // ✅ Add admin frontend
+            'http://localhost:3000',                     // Local admin frontend
+            'http://localhost:5173',                     // Local user frontend
+            'http://localhost:5174',                     // Alternative Vite port
+        ];
+        
+        // Allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        
+        // Check if origin is allowed
+        if (allowedOrigins.includes(origin)) {
+            console.log(`✅ CORS allowed for origin: ${origin}`);
+            return callback(null, true);
+        }
+        
+        // Log and allow in development (for debugging)
+        console.log(`⚠️ CORS request from unlisted origin: ${origin} - allowing for development`);
+        return callback(null, true); // Allow all origins in development
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Origin', 'Accept'],
+    exposedHeaders: ['Content-Length', 'X-Kuma-Revision'],
+    optionsSuccessStatus: 200
+}));
+
+// ✅ ENHANCED: Handle preflight requests with proper headers
+app.options('*', (req, res) => {
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS,PATCH');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Origin, Accept');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.sendStatus(200);
+});
+
 // --- MIDDLEWARE ---
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));

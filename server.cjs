@@ -71,6 +71,7 @@ app.use("/api/songs", songRoutes);
 app.use("/api/auth", authRoutes); 
 app.use('/api/user/favorites', favoritesRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/analytics', require('./routes/analyticsRoutes'));
 
 // --- HEALTH CHECK ---
 app.get('/', (req, res) => {

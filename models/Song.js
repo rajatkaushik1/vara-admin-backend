@@ -53,10 +53,57 @@ const songSchema = new mongoose.Schema({
         required: [true, 'Music key is a required field.'],
         trim: true
     },
+    // --- NEW: TRACKING FIELDS FOR ANALYTICS ---
+    analytics: {
+        totalPlays: {
+            type: Number,
+            default: 0
+        },
+        totalDownloads: {
+            type: Number,
+            default: 0
+        },
+        totalFavorites: {
+            type: Number,
+            default: 0
+        },
+        totalPlaytimeHours: {
+            type: Number,
+            default: 0 // Total listening time in hours
+        },
+        lastPlayedAt: {
+            type: Date
+        },
+        trendingScore: {
+            type: Number,
+            default: 0 // Calculated score for trending
+        },
+        weeklyPlays: {
+            type: Number,
+            default: 0 // Plays in the last 7 days
+        },
+        weeklyDownloads: {
+            type: Number,
+            default: 0 // Downloads in the last 7 days
+        },
+        weeklyFavorites: {
+            type: Number,
+            default: 0 // Favorites in the last 7 days
+        },
+        lastTrendingUpdate: {
+            type: Date,
+            default: Date.now
+        }
+    },
     createdAt: {
         type: Date,
         default: Date.now
     }
 });
+
+// Index for trending queries
+songSchema.index({ 'analytics.trendingScore': -1 });
+songSchema.index({ 'analytics.totalPlays': -1 });
+songSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model('Song', songSchema);

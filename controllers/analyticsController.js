@@ -3,13 +3,36 @@
 const Song = require('../models/Song');
 const SongAnalytics = require('../models/SongAnalytics');
 
+// Calculate trending scores for all songs
+const calculateTrendingScores = async () => {
+    try {
+        const songs = await Song.find();
+        for (const song of songs) {
+            const trendingScore = (song.analytics.weeklyPlays * 3) + 
+                                 (song.analytics.weeklyDownloads * 2) + 
+                                 (song.analytics.weeklyFavorites * 1);
+            
+            await Song.findByIdAndUpdate(song._id, {
+                'analytics.trendingScore': trendingScore,
+                'analytics.lastTrendingUpdate': new Date()
+            });
+        }
+        console.log('✅ Trending scores updated for all songs');
+    } catch (error) {
+        console.error('❌ Error calculating trending scores:', error);
+    }
+};
+
 // Get comprehensive analytics for all songs
 exports.getAllSongsAnalytics = async (req, res) => {
     try {
+        // Calculate trending scores before returning data
+        await calculateTrendingScores();
+        
         const songs = await Song.find()
             .populate('genres', 'name')
             .populate('subGenres', 'name')
-            .sort({ 'analytics.totalPlays': -1 });
+            .sort({ 'analytics.trendingScore': -1 });
 
         const analyticsData = songs.map(song => ({
             _id: song._id,
@@ -104,6 +127,9 @@ exports.getSongAnalytics = async (req, res) => {
 // Get platform-wide statistics
 exports.getPlatformStats = async (req, res) => {
     try {
+        // Calculate trending scores for accurate stats
+        await calculateTrendingScores();
+        
         const { days = 7 } = req.query;
         const cutoffDate = new Date();
         cutoffDate.setDate(cutoffDate.getDate() - days);

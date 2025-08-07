@@ -57,37 +57,69 @@ router.get('/by-genres', async (req, res) => {
   try {
     const { genreIds, subGenreIds, limit = 15 } = req.query;
     
+    console.log('🔍 Taste recommendation request:', {
+      genreIds,
+      subGenreIds,
+      limit
+    });
+    
     const query = {};
     
     if (genreIds) {
       const genreIdArray = genreIds.split(',').filter(id => id.trim());
-      if (genreIdArray.length > 0) {
-        query.genres = { $in: genreIdArray };
+      // Filter out test IDs that aren't valid MongoDB ObjectIds
+      const validGenreIds = genreIdArray.filter(id => {
+        return id.match(/^[0-9a-fA-F]{24}$/) && !id.startsWith('genre');
+      });
+      
+      if (validGenreIds.length > 0) {
+        query.genres = { $in: validGenreIds };
+        console.log('📊 Valid genre IDs:', validGenreIds);
       }
     }
     
     if (subGenreIds) {
       const subGenreIdArray = subGenreIds.split(',').filter(id => id.trim());
-      if (subGenreIdArray.length > 0) {
-        query.subGenres = { $in: subGenreIdArray };
+      // Filter out test IDs that aren't valid MongoDB ObjectIds
+      const validSubGenreIds = subGenreIdArray.filter(id => {
+        return id.match(/^[0-9a-fA-F]{24}$/) && !id.startsWith('sub');
+      });
+      
+      if (validSubGenreIds.length > 0) {
+        query.subGenres = { $in: validSubGenreIds };
+        console.log('📊 Valid subgenre IDs:', validSubGenreIds);
       }
     }
     
-    // If no genres or subgenres specified, return empty
+    // If no valid genres or subgenres found, return popular songs instead
     if (Object.keys(query).length === 0) {
-      return res.json([]);
+      console.log('⚠️ No valid genre/subgenre IDs found, returning popular songs');
+      const popularSongs = await Song.find()
+        .populate('genres', 'name')
+        .populate('subGenres', 'name')
+        .sort({ 'analytics.totalPlays': -1 })
+        .limit(parseInt(limit));
+      
+      return res.json(popularSongs);
     }
+    
+    console.log('🔍 MongoDB query:', query);
     
     const songs = await Song.find(query)
       .populate('genres', 'name')
       .populate('subGenres', 'name')
-      .sort({ 'analytics.totalPlays': -1 }) // Sort by popularity
+      .sort({ 'analytics.totalPlays': -1 })
       .limit(parseInt(limit));
     
+    console.log(`✅ Found ${songs.length} songs for taste recommendations`);
     res.json(songs);
+    
   } catch (error) {
-    console.error('Error fetching songs by genres:', error);
-    res.status(500).json({ message: 'Server error while fetching songs by genres' });
+    console.error('❌ Error fetching songs by genres:', error);
+    res.status(500).json({ 
+      message: 'Server error while fetching songs by genres',
+      error: error.message 
+    });
   }
 });
 

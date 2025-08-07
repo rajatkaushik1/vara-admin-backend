@@ -25,6 +25,72 @@ router.post('/track/:songId', trackInteraction);
 // Get trending songs
 router.get('/trending', getTrendingSongs);
 
+// NEW: Get songs by multiple IDs for taste recommendations
+router.get('/by-ids', async (req, res) => {
+  try {
+    const { ids } = req.query;
+    
+    if (!ids) {
+      return res.status(400).json({ message: 'Song IDs are required' });
+    }
+    
+    const songIds = ids.split(',').filter(id => id.trim());
+    
+    if (songIds.length === 0) {
+      return res.json([]);
+    }
+    
+    const songs = await Song.find({ '_id': { $in: songIds } })
+      .populate('genres', 'name')
+      .populate('subGenres', 'name')
+      .sort({ 'analytics.totalPlays': -1 }); // Sort by popularity
+    
+    res.json(songs);
+  } catch (error) {
+    console.error('Error fetching songs by IDs:', error);
+    res.status(500).json({ message: 'Server error while fetching songs' });
+  }
+});
+
+// Get songs by genre IDs for taste recommendations
+router.get('/by-genres', async (req, res) => {
+  try {
+    const { genreIds, subGenreIds, limit = 15 } = req.query;
+    
+    const query = {};
+    
+    if (genreIds) {
+      const genreIdArray = genreIds.split(',').filter(id => id.trim());
+      if (genreIdArray.length > 0) {
+        query.genres = { $in: genreIdArray };
+      }
+    }
+    
+    if (subGenreIds) {
+      const subGenreIdArray = subGenreIds.split(',').filter(id => id.trim());
+      if (subGenreIdArray.length > 0) {
+        query.subGenres = { $in: subGenreIdArray };
+      }
+    }
+    
+    // If no genres or subgenres specified, return empty
+    if (Object.keys(query).length === 0) {
+      return res.json([]);
+    }
+    
+    const songs = await Song.find(query)
+      .populate('genres', 'name')
+      .populate('subGenres', 'name')
+      .sort({ 'analytics.totalPlays': -1 }) // Sort by popularity
+      .limit(parseInt(limit));
+    
+    res.json(songs);
+  } catch (error) {
+    console.error('Error fetching songs by genres:', error);
+    res.status(500).json({ message: 'Server error while fetching songs by genres' });
+  }
+});
+
 // Get all songs with populated genre and subgenre data
 router.get('/', async (req, res) => {
   try {

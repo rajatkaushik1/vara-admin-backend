@@ -307,3 +307,25 @@ exports.getTrendingSongs = async (req, res) => {
         res.status(500).json({ message: 'Server error while fetching trending songs' });
     }
 };
+
+// --- NEW: Get newly uploaded songs (last N days) ---
+exports.getNewSongs = async (req, res) => {
+    try {
+        const sinceDays = parseInt(req.query.sinceDays, 10) || 10;
+        const limit = parseInt(req.query.limit, 10) || 12;
+        const fromDate = new Date(Date.now() - sinceDays * 24 * 60 * 60 * 1000);
+
+        const newSongs = await Song.find({
+            createdAt: { $gte: fromDate }
+        })
+        .populate('genres', 'name')
+        .populate('subGenres', 'name')
+        .sort({ createdAt: -1 })
+        .limit(limit);
+
+        return res.json(newSongs);
+    } catch (error) {
+        console.error('Error fetching new songs:', error);
+        res.status(500).json({ message: 'Server error while fetching new songs' });
+    }
+};

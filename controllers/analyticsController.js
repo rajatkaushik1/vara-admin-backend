@@ -214,3 +214,65 @@ exports.resetWeeklyCounters = async (req, res) => {
         res.status(500).json({ message: 'Server error while resetting counters' });
     }
 };
+
+// NEW: Get "Listen Again" songs for a user (last 30 days)
+exports.getListenAgain = async (req, res) => {
+    try {
+        const { userEmail, userId, limit = 20, days = 30 } = req.query;
+
+        if (!userEmail && !userId) {
+            return res.status(400).json({ message: 'userEmail or userId is required' });
+        }
+
+        const cutoffDate = new Date(Date.now() - (parseInt(days, 10) || 30) * 24 * 60 * 60 * 1000);
+        const lim = Math.min(parseInt(limit, 10) || 20, 50);
+
+        // Build match filter
+        const userMatch = userEmail ? { userEmail } : { userId };
+        const baseMatch = {
+            ...userMatch,
+            timestamp: { $gte: cutoffDate },
+            interactionType: { $in: ['play', 'download'] }
+        };
+
+        // Aggregate per song
+        const agg = await SongAnalytics.aggregate([
+            { $match: baseMatch },
+            {
+                $group: {
+                    _id: '$songId',
+                    playCount: { $sum: { $cond: [{ $eq: ['$interactionType', 'play'] }, 1, 0] } },
+                    downloadCount: { $sum: { $cond: [{ $eq: ['$interactionType', 'download'] }, 1, 0] } },
+                    lastInteraction: { $max: '$timestamp' }
+                }
+            },
+            {
+                $match: {
+                    $or: [
+                        { playCount: { $gt: 2 } },      // Streamed more than twice
+                        { downloadCount: { $gte: 1 } }  // Or downloaded at least once
+                    ]
+                }
+            },
+            { $sort: { lastInteraction: -1, playCount: -1, downloadCount: -1 } },
+            { $limit: lim },
+            { $project: { _id: 0, songId: '$_id' } }
+        ]);
+
+        const songIds = agg.map(a => a.songId);
+        if (songIds.length === 0) return res.json([]);
+
+        // Fetch and populate songs, then order them by aggregation order
+        const songs = await Song.find({ _id: { $in: songIds } })
+            .populate('genres', 'name')
+            .populate('subGenres', 'name');
+
+        const map = new Map(songs.map(s => [String(s._id), s]));
+        const ordered = songIds.map(id => map.get(String(id))).filter(Boolean);
+
+        return res.json(ordered);
+    } catch (error) {
+        console.error('Error fetching Listen Again:', error);
+        res.status(500).json({ message: 'Server error while fetching Listen Again' });
+    }
+};

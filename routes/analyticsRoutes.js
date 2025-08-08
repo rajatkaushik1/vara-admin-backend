@@ -6,7 +6,8 @@ const {
     getAllSongsAnalytics, 
     getSongAnalytics, 
     getPlatformStats, 
-    resetWeeklyCounters 
+    resetWeeklyCounters,
+    getListenAgain
 } = require('../controllers/analyticsController');
 
 // Get analytics for all songs
@@ -20,5 +21,8 @@ router.get('/platform', getPlatformStats);
 
 // Reset weekly counters (admin only)
 router.post('/reset-weekly', resetWeeklyCounters);
+
+// "Listen Again" (login required - identified via userEmail or userId)
+router.get('/listen-again', getListenAgain);
 
 module.exports = router;

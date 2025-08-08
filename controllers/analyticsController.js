@@ -276,3 +276,61 @@ exports.getListenAgain = async (req, res) => {
         res.status(500).json({ message: 'Server error while fetching Listen Again' });
     }
 };
+
+// NEW: Weekly Recommendations (not personalized, updated weekly)
+exports.getWeeklyRecommendations = async (req, res) => {
+    try {
+        const limit = Math.min(parseInt(req.query.limit, 10) || 15, 30);
+        // 40% trending, 30% new, 30% undiscovered
+        const trendingCount = Math.round(limit * 0.4);
+        const newCount = Math.round(limit * 0.3);
+        const undiscoveredCount = limit - trendingCount - newCount;
+
+        // Trending: highest trendingScore, last 7 days
+        const trendingSongs = await Song.find({ 'analytics.trendingScore': { $gt: 0 } })
+            .populate('genres', 'name')
+            .populate('subGenres', 'name')
+            .sort({ 'analytics.trendingScore': -1 })
+            .limit(trendingCount);
+
+        // New: created in last 10 days, newest first
+        const fromDate = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+        const newSongs = await Song.find({ createdAt: { $gte: fromDate } })
+            .populate('genres', 'name')
+            .populate('subGenres', 'name')
+            .sort({ createdAt: -1 })
+            .limit(newCount);
+
+        // Undiscovered: low totalPlays, must have imageUrl, audioUrl, bpm, key
+        const undiscoveredSongs = await Song.find({
+                'analytics.totalPlays': { $lte: 5 },
+                imageUrl: { $exists: true, $ne: '' },
+                audioUrl: { $exists: true, $ne: '' },
+                bpm: { $exists: true },
+                key: { $exists: true, $ne: '' }
+            })
+            .populate('genres', 'name')
+            .populate('subGenres', 'name')
+            .sort({ createdAt: -1 })
+            .limit(undiscoveredCount);
+
+        // Merge and deduplicate by _id, preserving order: trending → new → undiscovered
+        const seen = new Set();
+        const merged = [];
+        for (const arr of [trendingSongs, newSongs, undiscoveredSongs]) {
+            for (const song of arr) {
+                if (!seen.has(String(song._id))) {
+                    merged.push(song);
+                    seen.add(String(song._id));
+                }
+                if (merged.length >= limit) break;
+            }
+            if (merged.length >= limit) break;
+        }
+
+        res.json(merged);
+    } catch (error) {
+        console.error('Error fetching weekly recommendations:', error);
+        res.status(500).json({ message: 'Server error while fetching weekly recommendations' });
+    }
+};

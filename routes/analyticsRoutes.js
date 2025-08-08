@@ -7,7 +7,8 @@ const {
     getSongAnalytics, 
     getPlatformStats, 
     resetWeeklyCounters,
-    getListenAgain
+    getListenAgain,
+    getWeeklyRecommendations
 } = require('../controllers/analyticsController');
 
 // Get analytics for all songs
@@ -24,5 +25,8 @@ router.post('/reset-weekly', resetWeeklyCounters);
 
 // "Listen Again" (login required - identified via userEmail or userId)
 router.get('/listen-again', getListenAgain);
+
+// Weekly Recommendations (not personalized)
+router.get('/weekly-recommendations', getWeeklyRecommendations);
 
 module.exports = router;

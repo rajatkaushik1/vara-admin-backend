@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const Song = require('../models/Song');
 // Import the controller functions
-const { getAllSongs, createSong, updateSong, deleteSong, trackInteraction, getTrendingSongs } = require('../controllers/songController');
+const { getAllSongs, createSong, updateSong, deleteSong, trackInteraction, getTrendingSongs, getNewSongs } = require('../controllers/songController');
 const upload = require('../middleware/uploadMiddleware');
 
 // Create a new song (POST with file uploads)
@@ -24,6 +24,9 @@ router.post('/track/:songId', trackInteraction);
 
 // Get trending songs
 router.get('/trending', getTrendingSongs);
+
+// --- NEW: Get newest uploads (last N days, default 10) ---
+router.get('/new', getNewSongs);
 
 // NEW: Get songs by multiple IDs for taste recommendations
 router.get('/by-ids', async (req, res) => {

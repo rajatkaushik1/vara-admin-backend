@@ -76,6 +76,8 @@ songAnalyticsSchema.index({ songId: 1, timestamp: -1 });
 songAnalyticsSchema.index({ songId: 1, interactionType: 1, timestamp: -1 });
 songAnalyticsSchema.index({ timestamp: -1 });
 songAnalyticsSchema.index({ userId: 1, timestamp: -1 });
+songAnalyticsSchema.index({ userEmail: 1, timestamp: -1 });
+songAnalyticsSchema.index({ userEmail: 1, interactionType: 1, timestamp: -1 });
 
 // Method to get popular timestamps for a song
 songAnalyticsSchema.statics.getPopularTimestamps = async function(songId, days = 7) {

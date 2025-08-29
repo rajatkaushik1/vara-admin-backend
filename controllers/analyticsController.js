@@ -1,5 +1,6 @@
 // vara-admin-backend/controllers/analyticsController.js
 
+const mongoose = require('mongoose');
 const Song = require('../models/Song');
 const SongAnalytics = require('../models/SongAnalytics');
 
@@ -65,63 +66,99 @@ exports.getAllSongsAnalytics = async (req, res) => {
 
 // Get detailed analytics for a specific song
 exports.getSongAnalytics = async (req, res) => {
+  try {
+    const { songId } = req.params;
+    const rawDays = req.query.days;
+    const days = Math.max(1, parseInt(rawDays, 10) || 7);
+
+    // Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(songId)) {
+      return res.status(400).json({ message: 'Invalid songId' });
+    }
+    const sid = new mongoose.Types.ObjectId(songId);
+
+    // Load song
+    const song = await Song.findById(sid)
+      .populate('genres', 'name')
+      .populate('subGenres', 'name');
+
+    if (!song) {
+      return res.status(404).json({ message: 'Song not found' });
+    }
+
+    // Aggregations: guard against malformed data (e.g. null seekData.toPosition)
+    let popularTimestamps = [];
     try {
-        const { songId } = req.params;
-        const { days = 7 } = req.query;
+      popularTimestamps = await SongAnalytics.getPopularTimestamps(String(sid), days);
+    } catch (e) {
+      console.error('getPopularTimestamps error:', e?.message || e);
+      popularTimestamps = [];
+    }
 
-        const song = await Song.findById(songId)
-            .populate('genres', 'name')
-            .populate('subGenres', 'name');
+    let detailedStats = [];
+    try {
+      detailedStats = await SongAnalytics.getSongStats(String(sid), days);
+    } catch (e) {
+      console.error('getSongStats error:', e?.message || e);
+      detailedStats = [];
+    }
 
-        if (!song) {
-            return res.status(404).json({ message: 'Song not found' });
-        }
+    // Recent interactions
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
 
-        // Get popular timestamps
-        const popularTimestamps = await SongAnalytics.getPopularTimestamps(songId, days);
-
-        // Get detailed statistics
-        const detailedStats = await SongAnalytics.getSongStats(songId, days);
-
-        // Get recent interactions
-        const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - days);
-
-        const recentInteractions = await SongAnalytics.find({
-            songId,
-            timestamp: { $gte: cutoffDate }
-        })
+    let recentInteractions = [];
+    try {
+      recentInteractions = await SongAnalytics.find({
+        songId: sid,
+        timestamp: { $gte: cutoffDate }
+      })
         .sort({ timestamp: -1 })
         .limit(100)
         .select('interactionType playData timestamp userId userEmail');
-
-        // Calculate average completion rate
-        const playInteractions = recentInteractions.filter(i => i.interactionType === 'play');
-        const avgCompletionRate = playInteractions.length > 0 
-            ? playInteractions.reduce((sum, play) => sum + (play.playData?.completionPercentage || 0), 0) / playInteractions.length
-            : 0;
-
-        res.json({
-            song: {
-                _id: song._id,
-                title: song.title,
-                artist: song.artist,
-                duration: song.duration,
-                genres: song.genres,
-                subGenres: song.subGenres,
-                analytics: song.analytics
-            },
-            popularTimestamps,
-            detailedStats,
-            recentInteractions,
-            avgCompletionRate,
-            periodDays: days
-        });
-
-    } catch (error) {
-        console.error('Error fetching song analytics:', error);
-        res.status(500).json({ message: 'Server error while fetching song analytics' });
+    } catch (e) {
+      console.error('recentInteractions query error:', e?.message || e);
+      recentInteractions = [];
     }
+
+    // Average completion rate (defensive)
+    const playInteractions = Array.isArray(recentInteractions)
+      ? recentInteractions.filter(i => i && i.interactionType === 'play')
+      : [];
+    const avgCompletionRate =
+      playInteractions.length > 0
+        ? playInteractions.reduce((sum, play) => {
+            const pct =
+              play &&
+              play.playData &&
+              typeof play.playData.completionPercentage === 'number'
+                ? play.playData.completionPercentage
+                : 0;
+            return sum + pct;
+          }, 0) / playInteractions.length
+        : 0;
+
+    return res.json({
+      song: {
+        _id: song._id,
+        title: song.title,
+        artist: song.artist,
+        duration: song.duration,
+        genres: song.genres,
+        subGenres: song.subGenres,
+        collectionType: song.collectionType,
+        analytics: song.analytics
+      },
+      popularTimestamps,
+      detailedStats,
+      recentInteractions,
+      avgCompletionRate,
+      periodDays: days
+    });
+  } catch (error) {
+    console.error('Error fetching song analytics:', error && error.stack ? error.stack : error);
+    return res.status(500).json({ message: 'Server error while fetching song analytics' });
+  }
 };
 
 // Get platform-wide statistics

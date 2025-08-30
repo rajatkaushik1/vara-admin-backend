@@ -27,6 +27,11 @@ const songSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'SubGenre'
     }],
+    // NEW: Instruments are independent from genres/sub-genres
+    instruments: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Instrument'
+    }],
     collectionType: {
         type: String,
         enum: ['free', 'paid'], // Removed 'premium' as it's not in your frontend form

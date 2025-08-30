@@ -51,6 +51,7 @@ exports.getAllSongs = async (req, res) => {
         const songs = await Song.find()
             .populate('genres', 'name')
             .populate('subGenres', 'name')
+            .populate('instruments', 'name')
             .sort({ createdAt: -1 });
         res.json(songs);
     } catch (err) {
@@ -72,7 +73,7 @@ exports.createSong = async (req, res) => {
         return res.status(400).json({ message: 'Image and audio files are required' });
     }
 
-    const { title, duration, genres, subGenres, collectionType, hasVocals, bpm, key } = req.body;
+    const { title, duration, genres, subGenres, instruments, collectionType, hasVocals, bpm, key } = req.body;
 
     try {
         // The middleware has already uploaded the files to Cloudinary.
@@ -85,6 +86,7 @@ exports.createSong = async (req, res) => {
             duration,
             genres: parseJsonArray(genres),
             subGenres: parseJsonArray(subGenres),
+            instruments: parseJsonArray(instruments),
             collectionType,
             imageUrl,
             audioUrl,
@@ -111,12 +113,13 @@ exports.updateSong = async (req, res) => {
     }
 
     // Destructure fields from the JSON body.
-    const { title, genres, subGenres, collectionType, hasVocals, bpm, key } = req.body;
+    const { title, genres, subGenres, instruments, collectionType, hasVocals, bpm, key } = req.body;
 
     const updateData = {
         title,
         genres,
         subGenres,
+        instruments,
         collectionType,
         hasVocals,
         bpm,
@@ -132,7 +135,7 @@ exports.updateSong = async (req, res) => {
             req.params.id,
             { $set: updateData },
             { new: true, runValidators: true }
-        ).populate('genres', 'name').populate('subGenres', 'name');
+        ).populate('genres', 'name').populate('subGenres', 'name').populate('instruments', 'name');
 
         if (!song) {
             return res.status(404).json({ message: 'Song not found' });
@@ -288,10 +291,11 @@ exports.getTrendingSongs = async (req, res) => {
     try {
         // Get songs with highest trending scores
         const trendingSongs = await Song.find({
-            'analytics.trendingScore': { $gt: 0 } // Only songs with some activity
+            'analytics.trendingScore': { $gt: 0 }
         })
         .populate('genres', 'name')
         .populate('subGenres', 'name')
+        .populate('instruments', 'name')
         .sort({ 'analytics.trendingScore': -1 })
         .limit(12); // Return top 12 trending songs
 
@@ -320,6 +324,7 @@ exports.getNewSongs = async (req, res) => {
         })
         .populate('genres', 'name')
         .populate('subGenres', 'name')
+        .populate('instruments', 'name')
         .sort({ createdAt: -1 })
         .limit(limit);
 

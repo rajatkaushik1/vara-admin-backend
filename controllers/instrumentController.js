@@ -33,17 +33,20 @@ exports.createInstrument = async (req, res) => {
         ? req.files.instrumentImage[0]
         : null;
 
-    if (!name || !name.trim()) {
+    const rawName = (name || '').trim();
+    if (!rawName) {
       return res.status(400).json({ success: false, error: 'Instrument name is required.' });
     }
 
-    const exists = await Instrument.findOne({ name: name.trim() });
+    // Case-insensitive duplicate check using collation
+    const exists = await Instrument.findOne({ name: rawName })
+      .collation({ locale: 'en', strength: 2 });
     if (exists) {
-      return res.status(409).json({ success: false, error: `Instrument "${name.trim()}" already exists.` });
+      return res.status(409).json({ success: false, error: `Instrument "${rawName}" already exists.` });
     }
 
     const instrument = new Instrument({
-      name: name.trim(),
+      name: rawName,
       description: description || '',
       imageUrl: imageFile ? imageFile.path : ''
     });
@@ -85,9 +88,11 @@ exports.updateInstrument = async (req, res) => {
 
     // Unique name check (excluding current)
     if (name && name.trim() && name.trim() !== existing.name) {
-      const nameExists = await Instrument.findOne({ name: name.trim() });
-      if (nameExists) {
-        return res.status(409).json({ success: false, error: 'Another instrument with this name already exists.' });
+      const normalized = name.trim();
+      const conflict = await Instrument.findOne({ name: normalized, _id: { $ne: id } })
+        .collation({ locale: 'en', strength: 2 });
+      if (conflict) {
+        return res.status(409).json({ success: false, error: `Another instrument with the name "${normalized}" already exists.` });
       }
     }
 

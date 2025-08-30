@@ -4,6 +4,7 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const genreRoutes = require("./routes/genreRoutes");
 const subGenreRoutes = require("./routes/subGenreRoutes");
+const instrumentRoutes = require("./routes/instrumentRoutes");
 const songRoutes = require("./routes/songRoutes");
 const authRoutes = require("./routes/authRoutes");
 const favoritesRoutes = require('./routes/favoritesRoutes');
@@ -107,6 +108,7 @@ app.use((req, res, next) => {
 // --- ROUTES ---
 app.use("/api/genres", genreRoutes);
 app.use("/api/subgenres", subGenreRoutes);
+app.use("/api/instruments", instrumentRoutes);
 app.use("/api/songs", songRoutes);
 app.use("/api/auth", authRoutes); 
 app.use('/api/user/favorites', favoritesRoutes);

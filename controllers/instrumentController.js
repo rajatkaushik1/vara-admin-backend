@@ -39,7 +39,7 @@ exports.createInstrument = async (req, res) => {
 
     const exists = await Instrument.findOne({ name: name.trim() });
     if (exists) {
-      return res.status(409).json({ success: false, error: 'Instrument with this name already exists.' });
+      return res.status(409).json({ success: false, error: `Instrument "${name.trim()}" already exists.` });
     }
 
     const instrument = new Instrument({

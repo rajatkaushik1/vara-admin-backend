@@ -23,6 +23,8 @@ const storage = new CloudinaryStorage({
       folder = 'vara-music-genres';
     } else if (file.fieldname === 'subGenreImage') {
       folder = 'vara-music-subgenres';
+    } else if (file.fieldname === 'instrumentImage') {
+      folder = 'vara-music-instruments';
     } else {
       folder = 'vara-music-misc';
     }
@@ -52,7 +54,7 @@ const upload = multer({
   },
   fileFilter: (req, file, cb) => {
     // **FIX**: Changed fieldnames to match the frontend
-    if (file.fieldname === 'image' || file.fieldname === 'genreImage' || file.fieldname === 'subGenreImage') {
+    if (file.fieldname === 'image' || file.fieldname === 'genreImage' || file.fieldname === 'subGenreImage' || file.fieldname === 'instrumentImage') {
       if (!file.mimetype.startsWith('image')) {
         return cb(new Error('Only image files are allowed!'), false);
       }

@@ -13,6 +13,8 @@ const {
   getNewSongs
 } = require('../controllers/songController');
 const upload = require('../middleware/uploadMiddleware');
+const cache = require('../middleware/cache');
+const cacheControl = require('../middleware/cacheControl');
 
 // Create a new song (POST with file uploads)
 router.post(
@@ -34,11 +36,11 @@ router.delete('/:id', deleteSong);
 router.post('/track/:songId', trackInteraction);
 
 // Trending and New uploads
-router.get('/trending', getTrendingSongs);
-router.get('/new', getNewSongs);
+router.get('/trending', cacheControl(60), cache(30), getTrendingSongs);
+router.get('/new', cacheControl(60), cache(30), getNewSongs);
 
 // Get songs by multiple IDs (used for taste recommendations)
-router.get('/by-ids', async (req, res) => {
+router.get('/by-ids', cacheControl(60), cache(30), async (req, res) => {
   try {
     const { ids } = req.query;
     if (!ids) return res.status(400).json({ message: 'Song IDs are required' });
@@ -60,7 +62,7 @@ router.get('/by-ids', async (req, res) => {
 });
 
 // Get songs by genres/subgenres (taste resolver)
-router.get('/by-genres', async (req, res) => {
+router.get('/by-genres', cacheControl(60), cache(30), async (req, res) => {
   try {
     const { genreIds, subGenreIds, limit = 15 } = req.query;
 
@@ -153,7 +155,7 @@ router.get('/by-instruments', async (req, res) => {
 });
 
 // Get all songs
-router.get('/', async (req, res) => {
+router.get('/', cacheControl(60), cache(30), async (req, res) => {
   try {
     const songs = await Song.find()
       .populate('genres', 'name')

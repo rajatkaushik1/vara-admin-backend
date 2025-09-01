@@ -79,10 +79,14 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Enhanced request logging
+// Lightweight response-time logger (no header dumps)
 app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path} - Origin: ${req.get('Origin') || 'none'}`);
-  console.log('Headers:', req.headers);
+  const start = process.hrtime.bigint();
+  res.on('finish', () => {
+    const ms = Number(process.hrtime.bigint() - start) / 1e6;
+    // Use originalUrl so query strings are visible in logs (good for cache-busting tests)
+    console.log(`${req.method} ${req.originalUrl} ${res.statusCode} - ${ms.toFixed(1)} ms`);
+  });
   next();
 });
 

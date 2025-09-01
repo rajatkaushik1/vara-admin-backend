@@ -10,6 +10,8 @@ const {
     getListenAgain,
     getWeeklyRecommendations
 } = require('../controllers/analyticsController');
+const cache = require('../middleware/cache');               // ensure present
+const cacheControl = require('../middleware/cacheControl'); // ensure present
 
 // Get analytics for all songs
 router.get('/songs', getAllSongsAnalytics);
@@ -26,7 +28,12 @@ router.post('/reset-weekly', resetWeeklyCounters);
 // "Listen Again" (login required - identified via userEmail or userId)
 router.get('/listen-again', getListenAgain);
 
-// Weekly Recommendations (not personalized)
-router.get('/weekly-recommendations', getWeeklyRecommendations);
+// Weekly Recommendations (browser + server cache)
+router.get(
+  '/weekly-recommendations',
+  cacheControl(60),
+  cache(30, { cacheControlSeconds: 60 }),
+  getWeeklyRecommendations
+);
 
 module.exports = router;

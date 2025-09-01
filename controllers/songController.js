@@ -52,7 +52,8 @@ exports.getAllSongs = async (req, res) => {
             .populate('genres', 'name')
             .populate('subGenres', 'name')
             .populate('instruments', 'name')
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .lean(); // return plain objects (faster, less CPU)
         res.json(songs);
     } catch (err) {
         console.error(err.message);
@@ -289,7 +290,6 @@ exports.trackInteraction = async (req, res) => {
 // Get trending songs
 exports.getTrendingSongs = async (req, res) => {
     try {
-        // Get songs with highest trending scores
         const trendingSongs = await Song.find({
             'analytics.trendingScore': { $gt: 0 }
         })
@@ -297,15 +297,14 @@ exports.getTrendingSongs = async (req, res) => {
         .populate('subGenres', 'name')
         .populate('instruments', 'name')
         .sort({ 'analytics.trendingScore': -1 })
-        .limit(12); // Return top 12 trending songs
+        .limit(12)
+        .lean(); // faster, no hydration
 
-        // Only return trending section if we have at least 10 songs
         if (trendingSongs.length < 10) {
             return res.json([]);
         }
 
         res.json(trendingSongs);
-
     } catch (error) {
         console.error('Error fetching trending songs:', error);
         res.status(500).json({ message: 'Server error while fetching trending songs' });
@@ -326,7 +325,8 @@ exports.getNewSongs = async (req, res) => {
         .populate('subGenres', 'name')
         .populate('instruments', 'name')
         .sort({ createdAt: -1 })
-        .limit(limit);
+        .limit(limit)
+        .lean(); // faster, no hydration
 
         return res.json(newSongs);
     } catch (error) {

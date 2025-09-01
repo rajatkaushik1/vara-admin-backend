@@ -1,4 +1,4 @@
-    // C:\Users\Dell\Desktop\vara-admin\controllers\subGenreController.js
+// C:\Users\Dell\Desktop\vara-admin\controllers\subGenreController.js
     const SubGenre = require('../models/SubGenre');
     const Genre = require('../models/Genre'); // Needed for validation
     const cloudinary = require('cloudinary').v2; // Import Cloudinary
@@ -59,7 +59,9 @@
     // @access  Public
     exports.getAllSubGenres = async (req, res) => {
         try {
-            const subGenres = await SubGenre.find({}).populate('genre', 'name');
+            const subGenres = await SubGenre.find({})
+                .populate('genre', 'name')
+                .lean(); // return plain objects (faster, less CPU)
             res.json(subGenres);
         } catch (error) {
             console.error("Error fetching sub-genres:", error);
@@ -74,7 +76,9 @@
     exports.getSubGenresByGenre = async (req, res) => {
         try {
             const { genreId } = req.params;
-            const subGenres = await SubGenre.find({ genre: genreId }).populate('genre', 'name');
+            const subGenres = await SubGenre.find({ genre: genreId })
+                .populate('genre', 'name')
+                .lean(); // faster, no hydration
             res.json(subGenres);
         } catch (error) {
             console.error("Error fetching sub-genres by genre ID:", error);
@@ -196,4 +200,3 @@
             res.status(500).json({ success: false, error: error.message });
         }
     };
-    

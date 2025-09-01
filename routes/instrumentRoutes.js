@@ -9,6 +9,8 @@ const {
 } = require('../controllers/instrumentController');
 
 const upload = require('../middleware/uploadMiddleware');
+const cache = require('../middleware/cache');
+const cacheControl = require('../middleware/cacheControl');
 
 /**
  * Instruments API
@@ -24,7 +26,10 @@ router.post(
 );
 
 // Get all instruments
-router.get('/', getAllInstruments);
+router.get('/', cacheControl(600), cache(300), getAllInstruments);
+
+// Optional: single instrument read (cached if exists)
+// router.get('/:id', cacheControl(600), cache(300), getInstrumentById);
 
 // Update an instrument (multipart: name?, description?, instrumentImage?; clearImage='true' supported)
 router.put(

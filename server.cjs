@@ -130,8 +130,8 @@ mongoose.connect(process.env.MONGODB_URI, {
   console.log("✅ Successfully connected to MongoDB");
   console.log("✅ Database name:", mongoose.connection.db.databaseName);
 
-  const port = process.env.PORT || 5000;
-  const host = '0.0.0.0';
+const port = process.env.PORT || 8080;
+const host = '0.0.0.0';
 
   const server = app.listen(port, host, () => {
     console.log(`🚀 Server successfully started on http://${host}:${port}`);

@@ -75,43 +75,73 @@ exports.getAllSongs = async (req, res) => {
 // Create a new song
 // This function now correctly assumes the `uploadMiddleware` has already run.
 exports.createSong = async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ ok: false, errors: errors.array() });
+  }
+
+  // Validate files existence
+  if (!req.files || !req.files.image || !req.files.audio) {
+    return res.status(400).json({ ok: false, message: 'Image and audio files are required' });
+  }
+
+  const { title, duration, genres, subGenres, instruments, collectionType, hasVocals, bpm, key } = req.body;
+
+  try {
+    // Files set by upload middleware:
+    // - Cloudinary image: req.files.image[0].path
+    // - R2 audio: req.files.audio[0].location (multer-s3), with fallback to build from key
+    const imageFile = req.files.image[0];
+    const audioFile = req.files.audio[0];
+
+    const imageUrl = imageFile.path;
+
+    // Build a robust audioUrl
+    let audioUrl = audioFile.location || audioFile.path || '';
+    if (!audioUrl) {
+      const base = process.env.R2_PUBLIC_BASE_URL && process.env.R2_PUBLIC_BASE_URL.trim()
+        ? process.env.R2_PUBLIC_BASE_URL.replace(/\/$/, '')
+        : '';
+      if (base && audioFile.key) {
+        audioUrl = `${base}/${audioFile.key}`;
+      } else if (process.env.CLOUDFLARE_ACCOUNT_ID && process.env.R2_BUCKET_NAME && audioFile.key) {
+        audioUrl = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/${audioFile.key}`;
+      }
     }
 
-    // The `uploadMiddleware` populates `req.files` if files are uploaded.
-    if (!req.files || !req.files.image || !req.files.audio) {
-        return res.status(400).json({ message: 'Image and audio files are required' });
+    if (!audioUrl) {
+      return res.status(500).json({ ok: false, message: 'Could not determine audio URL after upload' });
     }
 
-    const { title, duration, genres, subGenres, instruments, collectionType, hasVocals, bpm, key } = req.body;
+    const newSong = new Song({
+      title: title && typeof title === 'string' ? title : '',
+      duration: Number(duration) || 0,
+      genres: parseJsonArray(genres),
+      subGenres: parseJsonArray(subGenres),
+      instruments: parseJsonArray(instruments),
+      collectionType,
+      imageUrl,
+      audioUrl,
+      hasVocals: String(hasVocals).toLowerCase() === 'true',
+      bpm,
+      key
+    });
 
-    try {
-        // The middleware has already uploaded the files to Cloudinary and R2.
-        const imageUrl = req.files.image[0].path;
-        const audioUrl = req.files.audio[0].location;
+    // Save the song
+    const saved = await newSong.save();
 
-        const newSong = new Song({
-            title,
-            duration,
-            genres: parseJsonArray(genres),
-            subGenres: parseJsonArray(subGenres),
-            instruments: parseJsonArray(instruments),
-            collectionType,
-            imageUrl,
-            audioUrl,
-            hasVocals: String(hasVocals).toLowerCase() === 'true',
-            bpm,
-            key
-        });
+    // Populate for a nicer response (frontend also refetches, so this is "nice to have")
+    const populated = await Song.findById(saved._id)
+      .populate('genres', 'name')
+      .populate('subGenres', 'name')
+      .populate('instruments', 'name');
 
-        const song = await newSong.save();
-
-    } catch (err) {
-        console.error('Error in createSong:', err);
-        res.status(500).send('Server Error');
-    }
+    // IMPORTANT: Always return a JSON response so the frontend doesn't hang
+    return res.status(201).json({ ok: true, song: populated || saved });
+  } catch (err) {
+    console.error('Error in createSong:', err);
+    return res.status(500).json({ ok: false, message: 'Server Error while creating song', error: err.message });
+  }
 };
 
 // Update an existing song

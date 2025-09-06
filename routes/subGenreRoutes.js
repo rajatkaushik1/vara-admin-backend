@@ -3,13 +3,13 @@
     const router = express.Router();
     // Import all necessary functions from controller
     const { createSubGenre, getSubGenresByGenre, getAllSubGenres, deleteSubGenre, updateSubGenre } = require('../controllers/subGenreController');
-    const upload = require('../middleware/uploadMiddleware');
+    const { uploadImageToCloudinary } = require('../middleware/uploadMiddleware');
     const cache = require('../middleware/cache');             // <-- add
     const cacheControl = require('../middleware/cacheControl'); // <-- add
 
     // Create a new sub-genre (now accepts an image file)
     // Use upload.fields() to handle the 'subGenreImage' file input
-    router.post('/', upload.fields([{ name: 'subGenreImage', maxCount: 1 }]), createSubGenre);
+    router.post('/', uploadImageToCloudinary.fields([{ name: 'subGenreImage', maxCount: 1 }]), createSubGenre);
 
     // Get sub-genres by parent genre ID (no change needed here)
     router.get('/byGenre/:genreId', cacheControl(600), cache(300), getSubGenresByGenre); // <-- updated
@@ -22,6 +22,6 @@
 
     // Update a sub-genre by ID (now accepts an image file)
     // Use upload.fields() to handle the 'subGenreImage' file input
-    router.put('/:id', upload.fields([{ name: 'subGenreImage', maxCount: 1 }]), updateSubGenre);
+    router.put('/:id', uploadImageToCloudinary.fields([{ name: 'subGenreImage', maxCount: 1 }]), updateSubGenre);
 
     module.exports = router;

@@ -4,6 +4,17 @@ const Song = require('../models/Song');
 const SongAnalytics = require('../models/SongAnalytics');
 const { validationResult } = require('express-validator');
 const cloudinary = require('cloudinary').v2;
+const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+
+// Initialize S3 client for Cloudflare R2
+const s3Client = new S3Client({
+  region: 'auto',
+  endpoint: `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+  },
+});
 
 /**
  * Helper to parse genre/sub-genre IDs from FormData.
@@ -77,10 +88,9 @@ exports.createSong = async (req, res) => {
     const { title, duration, genres, subGenres, instruments, collectionType, hasVocals, bpm, key } = req.body;
 
     try {
-        // The middleware has already uploaded the files to Cloudinary.
-        // The URL is available in the `path` property provided by `multer-storage-cloudinary`.
+        // The middleware has already uploaded the files to Cloudinary and R2.
         const imageUrl = req.files.image[0].path;
-        const audioUrl = req.files.audio[0].path;
+        const audioUrl = req.files.audio[0].location;
 
         const newSong = new Song({
             title,
@@ -97,7 +107,6 @@ exports.createSong = async (req, res) => {
         });
 
         const song = await newSong.save();
-        res.status(201).json(song);
 
     } catch (err) {
         console.error('Error in createSong:', err);
@@ -167,11 +176,20 @@ exports.deleteSong = async (req, res) => {
                 await cloudinary.uploader.destroy(publicId);
             }
         }
+        // NEW: Delete audio from Cloudflare R2
         if (song.audioUrl) {
-            const publicId = getPublicIdFromUrl(song.audioUrl);
-            if (publicId) {
-                // Remember, audio files are 'video' resource type in our middleware
-                await cloudinary.uploader.destroy(publicId, { resource_type: 'video' });
+            try {
+                const bucketName = process.env.R2_BUCKET_NAME;
+                // Extract the object key from the full URL
+                const key = new URL(song.audioUrl).pathname.substring(1);
+
+                const deleteParams = {
+                    Bucket: bucketName,
+                    Key: key,
+                };
+                await s3Client.send(new DeleteObjectCommand(deleteParams));
+            } catch (r2Error) {
+                console.error("Failed to delete audio from R2, but proceeding with DB deletion:", r2Error);
             }
         }
 
@@ -334,3 +352,4 @@ exports.getNewSongs = async (req, res) => {
         res.status(500).json({ message: 'Server error while fetching new songs' });
     }
 };
+

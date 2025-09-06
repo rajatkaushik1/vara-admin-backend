@@ -155,7 +155,7 @@ router.get('/by-instruments', async (req, res) => {
 });
 
 // Get all songs
-router.get('/', cacheControl(60), cache(30), async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const songs = await Song.find()
       .populate('genres', 'name')

@@ -12,14 +12,14 @@ const {
   getTrendingSongs,
   getNewSongs
 } = require('../controllers/songController');
-const upload = require('../middleware/uploadMiddleware');
+const { uploadSongFiles } = require('../middleware/uploadMiddleware');
 const cache = require('../middleware/cache');
 const cacheControl = require('../middleware/cacheControl');
 
 // Create a new song (POST with file uploads)
 router.post(
   '/',
-  upload.fields([
+  uploadSongFiles.fields([
     { name: 'image', maxCount: 1 },
     { name: 'audio', maxCount: 1 }
   ]),

@@ -26,7 +26,7 @@ router.post(
 );
 
 // Get all instruments
-router.get('/', getAllInstruments);
+router.get('/', cacheControl(600), cache(300), getAllInstruments);
 
 // Optional: single instrument read (cached if exists)
 // router.get('/:id', cacheControl(600), cache(300), getInstrumentById);

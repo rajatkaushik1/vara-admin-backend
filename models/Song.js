@@ -45,6 +45,9 @@ const songSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    audioKey: {
+        type: String // <-- added field for R2 object key
+    },
     hasVocals: {
         type: Boolean,
         default: false
@@ -104,7 +107,7 @@ const songSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     }
-});
+}, { timestamps: true });
 
 // Index for trending queries
 songSchema.index({ 'analytics.trendingScore': -1 });

@@ -89,24 +89,28 @@ exports.createSong = async (req, res) => {
 
   try {
     // Files set by upload middleware:
-    // - Cloudinary image: req.files.image[0].path
-    // - R2 audio: req.files.audio[0].location (multer-s3), with fallback to build from key
+    // - Cloudinary image: req.files.image[0].path (public)
+    // - R2 audio: req.files.audio[0].key + (optional) location; we prefer R2_PUBLIC_BASE_URL for public access
     const imageFile = req.files.image[0];
     const audioFile = req.files.audio[0];
 
     const imageUrl = imageFile.path;
 
-    // Build a robust audioUrl
-    let audioUrl = audioFile.location || audioFile.path || '';
-    if (!audioUrl) {
-      const base = process.env.R2_PUBLIC_BASE_URL && process.env.R2_PUBLIC_BASE_URL.trim()
-        ? process.env.R2_PUBLIC_BASE_URL.replace(/\/$/, '')
-        : '';
-      if (base && audioFile.key) {
-        audioUrl = `${base}/${audioFile.key}`;
-      } else if (process.env.CLOUDFLARE_ACCOUNT_ID && process.env.R2_BUCKET_NAME && audioFile.key) {
-        audioUrl = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/${audioFile.key}`;
-      }
+    // Build a public audioUrl using R2_PUBLIC_BASE_URL if available
+    const base = (process.env.R2_PUBLIC_BASE_URL && process.env.R2_PUBLIC_BASE_URL.trim())
+      ? process.env.R2_PUBLIC_BASE_URL.replace(/\/$/, '')
+      : '';
+
+    let audioUrl = '';
+    if (base && audioFile.key) {
+      // Always prefer your public domain
+      audioUrl = `${base}/${audioFile.key}`;
+    } else if (audioFile.location) {
+      // Fallback to S3 location (may be private if bucket is not public)
+      audioUrl = audioFile.location;
+    } else if (process.env.CLOUDFLARE_ACCOUNT_ID && process.env.R2_BUCKET_NAME && audioFile.key) {
+      // Last resort: r2.cloudflarestorage.com URL (will only work if bucket allows public GET)
+      audioUrl = `https://${process.env.CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET_NAME}/${audioFile.key}`;
     }
 
     if (!audioUrl) {
@@ -122,6 +126,8 @@ exports.createSong = async (req, res) => {
       collectionType,
       imageUrl,
       audioUrl,
+      // Save the S3 key for reliable deletion later
+      audioKey: audioFile.key || undefined,
       hasVocals: String(hasVocals).toLowerCase() === 'true',
       bpm,
       key
@@ -130,13 +136,12 @@ exports.createSong = async (req, res) => {
     // Save the song
     const saved = await newSong.save();
 
-    // Populate for a nicer response (frontend also refetches, so this is "nice to have")
+    // Populate for a nicer response (frontend also refetches)
     const populated = await Song.findById(saved._id)
       .populate('genres', 'name')
       .populate('subGenres', 'name')
       .populate('instruments', 'name');
 
-    // IMPORTANT: Always return a JSON response so the frontend doesn't hang
     return res.status(201).json({ ok: true, song: populated || saved });
   } catch (err) {
     console.error('Error in createSong:', err);
@@ -199,7 +204,7 @@ exports.deleteSong = async (req, res) => {
       return res.status(404).json({ message: 'Song not found' });
     }
 
-    // Delete files from Cloudinary (image)
+    // Delete image from Cloudinary (best-effort)
     if (song.imageUrl) {
       const publicId = getPublicIdFromUrl(song.imageUrl);
       if (publicId) {
@@ -216,27 +221,28 @@ exports.deleteSong = async (req, res) => {
       try {
         const bucketName = process.env.R2_BUCKET_NAME;
 
-        // Extract the object key from the full URL.
-        // Handles:
-        //  - https://ACCOUNTID.r2.cloudflarestorage.com/BUCKET/audio/file.mp3  -> key: audio/file.mp3
-        //  - https://cdn.example.com/audio/file.mp3                            -> key: audio/file.mp3
-        const extractKey = (urlStr) => {
-          try {
-            const u = new URL(urlStr);
-            // Remove leading slash
-            let path = u.pathname.replace(/^\/+/, ''); // "BUCKET/audio/file.mp3" or "audio/file.mp3"
+        // If we have an audioKey, use it directly (most reliable)
+        let key = song.audioKey;
 
-            // If path begins with "<bucketName>/", strip that prefix
-            if (bucketName && path.startsWith(bucketName + '/')) {
-              path = path.slice(bucketName.length + 1);
+        // Otherwise derive it from the URL path
+        if (!key) {
+          const extractKey = (urlStr) => {
+            try {
+              const u = new URL(urlStr);
+              // Remove leading slash
+              let path = u.pathname.replace(/^\/+/, ''); // "BUCKET/audio/file.mp3" or "audio/file.mp3"
+              // If path begins with "<bucketName>/", strip that prefix
+              if (bucketName && path.startsWith(bucketName + '/')) {
+                path = path.slice(bucketName.length + 1);
+              }
+              return path;
+            } catch (e) {
+              return null;
             }
-            return path;
-          } catch (e) {
-            return null;
-          }
-        };
+          };
+          key = extractKey(song.audioUrl);
+        }
 
-        const key = extractKey(song.audioUrl);
         if (key) {
           await s3Client.send(new DeleteObjectCommand({ Bucket: bucketName, Key: key }));
         } else {
@@ -382,7 +388,7 @@ exports.getTrendingSongs = async (req, res) => {
     }
 };
 
-// --- NEW: Get newly uploaded songs (last N days) ---
+// Get new songs
 exports.getNewSongs = async (req, res) => {
     try {
         const sinceDays = parseInt(req.query.sinceDays, 10) || 10;

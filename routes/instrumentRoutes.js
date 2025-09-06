@@ -8,7 +8,7 @@ const {
   deleteInstrument
 } = require('../controllers/instrumentController');
 
-const upload = require('../middleware/uploadMiddleware');
+const { uploadImageToCloudinary } = require('../middleware/uploadMiddleware');
 const cache = require('../middleware/cache');
 const cacheControl = require('../middleware/cacheControl');
 
@@ -21,7 +21,7 @@ const cacheControl = require('../middleware/cacheControl');
 // Create a new instrument (multipart: name, description?, instrumentImage?)
 router.post(
   '/',
-  upload.fields([{ name: 'instrumentImage', maxCount: 1 }]),
+  uploadImageToCloudinary.fields([{ name: 'instrumentImage', maxCount: 1 }]),
   createInstrument
 );
 
@@ -34,7 +34,7 @@ router.get('/', getAllInstruments);
 // Update an instrument (multipart: name?, description?, instrumentImage?; clearImage='true' supported)
 router.put(
   '/:id',
-  upload.fields([{ name: 'instrumentImage', maxCount: 1 }]),
+  uploadImageToCloudinary.fields([{ name: 'instrumentImage', maxCount: 1 }]),
   updateInstrument
 );
 

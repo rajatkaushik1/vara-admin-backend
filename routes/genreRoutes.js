@@ -3,13 +3,13 @@
     const router = express.Router();
     // Import all necessary functions from controller
     const { createGenre, getAllGenres, deleteGenre, updateGenre } = require('../controllers/genreController');
-    const upload = require('../middleware/uploadMiddleware');
+    const { uploadImageToCloudinary } = require('../middleware/uploadMiddleware');
     const cache = require('../middleware/cache');             // <-- add
     const cacheControl = require('../middleware/cacheControl'); // <-- add
 
     // Create a new genre (now accepts an image file)
     // Use upload.fields() to handle the 'genreImage' file input
-    router.post('/', upload.fields([{ name: 'genreImage', maxCount: 1 }]), createGenre);
+    router.post('/', uploadImageToCloudinary.fields([{ name: 'genreImage', maxCount: 1 }]), createGenre);
 
     // Get all genres
     router.get('/', cacheControl(600), cache(300), getAllGenres); // <-- updated
@@ -19,6 +19,6 @@
 
     // Update a genre by ID (now accepts an image file)
     // Use upload.fields() to handle the 'genreImage' file input
-    router.put('/:id', upload.fields([{ name: 'genreImage', maxCount: 1 }]), updateGenre);
+    router.put('/:id', uploadImageToCloudinary.fields([{ name: 'genreImage', maxCount: 1 }]), updateGenre);
 
     module.exports = router;

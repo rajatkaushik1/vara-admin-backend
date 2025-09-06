@@ -192,46 +192,69 @@ exports.updateSong = async (req, res) => {
 // Delete a song
 // **IMPROVEMENT**: Now also deletes the associated files from Cloudinary.
 exports.deleteSong = async (req, res) => {
-    try {
-        const song = await Song.findById(req.params.id);
+  try {
+    const song = await Song.findById(req.params.id);
 
-        if (!song) {
-            return res.status(404).json({ message: 'Song not found' });
-        }
-
-        // Delete files from Cloudinary
-        if (song.imageUrl) {
-            const publicId = getPublicIdFromUrl(song.imageUrl);
-            if (publicId) {
-                await cloudinary.uploader.destroy(publicId);
-            }
-        }
-        // NEW: Delete audio from Cloudflare R2
-        if (song.audioUrl) {
-            try {
-                const bucketName = process.env.R2_BUCKET_NAME;
-                // Extract the object key from the full URL
-                const key = new URL(song.audioUrl).pathname.substring(1);
-
-                const deleteParams = {
-                    Bucket: bucketName,
-                    Key: key,
-                };
-                await s3Client.send(new DeleteObjectCommand(deleteParams));
-            } catch (r2Error) {
-                console.error("Failed to delete audio from R2, but proceeding with DB deletion:", r2Error);
-            }
-        }
-
-        // Delete the song from the database
-        await song.deleteOne();
-
-        res.json({ message: 'Song and associated files removed' });
-
-    } catch (err) {
-        console.error('Error in deleteSong:', err);
-        res.status(500).send('Server Error');
+    if (!song) {
+      return res.status(404).json({ message: 'Song not found' });
     }
+
+    // Delete files from Cloudinary (image)
+    if (song.imageUrl) {
+      const publicId = getPublicIdFromUrl(song.imageUrl);
+      if (publicId) {
+        try {
+          await cloudinary.uploader.destroy(publicId);
+        } catch (imgErr) {
+          console.warn('Failed to delete image from Cloudinary:', imgErr?.message || imgErr);
+        }
+      }
+    }
+
+    // Delete audio from Cloudflare R2 (best-effort)
+    if (song.audioUrl) {
+      try {
+        const bucketName = process.env.R2_BUCKET_NAME;
+
+        // Extract the object key from the full URL.
+        // Handles:
+        //  - https://ACCOUNTID.r2.cloudflarestorage.com/BUCKET/audio/file.mp3  -> key: audio/file.mp3
+        //  - https://cdn.example.com/audio/file.mp3                            -> key: audio/file.mp3
+        const extractKey = (urlStr) => {
+          try {
+            const u = new URL(urlStr);
+            // Remove leading slash
+            let path = u.pathname.replace(/^\/+/, ''); // "BUCKET/audio/file.mp3" or "audio/file.mp3"
+
+            // If path begins with "<bucketName>/", strip that prefix
+            if (bucketName && path.startsWith(bucketName + '/')) {
+              path = path.slice(bucketName.length + 1);
+            }
+            return path;
+          } catch (e) {
+            return null;
+          }
+        };
+
+        const key = extractKey(song.audioUrl);
+        if (key) {
+          await s3Client.send(new DeleteObjectCommand({ Bucket: bucketName, Key: key }));
+        } else {
+          console.warn('Could not derive R2 object key from audioUrl:', song.audioUrl);
+        }
+      } catch (r2Error) {
+        console.error('Failed to delete audio from R2 (continuing with DB deletion):', r2Error?.message || r2Error);
+      }
+    }
+
+    // Delete the song from the database
+    await song.deleteOne();
+
+    return res.json({ message: 'Song and associated files removed' });
+  } catch (err) {
+    console.error('Error in deleteSong:', err);
+    return res.status(500).json({ message: 'Server Error' });
+  }
 };
 
 // --- NEW: TRACKING FUNCTIONALITY ---

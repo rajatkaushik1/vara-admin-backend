@@ -5,6 +5,7 @@ const SongAnalytics = require('../models/SongAnalytics');
 const { validationResult } = require('express-validator');
 const cloudinary = require('cloudinary').v2;
 const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
+const { bump } = require('../utils/contentVersion');
 
 // Initialize S3 client for Cloudflare R2
 const s3Client = new S3Client({
@@ -142,6 +143,7 @@ exports.createSong = async (req, res) => {
       .populate('subGenres', 'name')
       .populate('instruments', 'name');
 
+    try { await bump('songs'); } catch (e) { console.warn('content version bump failed (createSong):', e?.message || e); }
     return res.status(201).json({ ok: true, song: populated || saved });
   } catch (err) {
     console.error('Error in createSong:', err);
@@ -186,6 +188,7 @@ exports.updateSong = async (req, res) => {
             return res.status(404).json({ message: 'Song not found' });
         }
 
+        try { await bump('songs'); } catch (e) { console.warn('content version bump failed (updateSong):', e?.message || e); }
         res.json(song);
 
     } catch (err) {
@@ -256,6 +259,7 @@ exports.deleteSong = async (req, res) => {
     // Delete the song from the database
     await song.deleteOne();
 
+    try { await bump('songs'); } catch (e) { console.warn('content version bump failed (deleteSong):', e?.message || e); }
     return res.json({ message: 'Song and associated files removed' });
   } catch (err) {
     console.error('Error in deleteSong:', err);

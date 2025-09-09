@@ -1,5 +1,6 @@
 const Instrument = require('../models/Instrument');
 const cloudinary = require('cloudinary').v2;
+const { bump } = require('../utils/contentVersion');
 
 /**
  * Extract Cloudinary public_id from a URL produced by multer-storage-cloudinary
@@ -52,6 +53,7 @@ exports.createInstrument = async (req, res) => {
     });
 
     await instrument.save();
+    try { await bump('instruments'); } catch (e) { console.warn('content version bump failed (createInstrument):', e?.message || e); }
     return res.status(201).json(instrument);
   } catch (error) {
     console.error('Error creating instrument:', error);
@@ -139,6 +141,7 @@ exports.updateInstrument = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Instrument not found after update attempt.' });
     }
 
+    try { await bump('instruments'); } catch (e) { console.warn('content version bump failed (updateInstrument):', e?.message || e); }
     return res.status(200).json(updated);
   } catch (error) {
     console.error('Error updating instrument:', error);
@@ -168,6 +171,7 @@ exports.deleteInstrument = async (req, res) => {
     }
 
     await existing.deleteOne();
+    try { await bump('instruments'); } catch (e) { console.warn('content version bump failed (deleteInstrument):', e?.message || e); }
     return res.status(200).json({ success: true, message: 'Instrument and its image deleted successfully.' });
   } catch (error) {
     console.error('Error deleting instrument:', error);

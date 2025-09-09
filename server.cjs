@@ -12,6 +12,7 @@ const authRoutes = require("./routes/authRoutes");
 const favoritesRoutes = require('./routes/favoritesRoutes');
 const userRoutes = require('./routes/userRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
+const { read: readContentVersion } = require('./utils/contentVersion');
 
 // Load environment variables
 dotenv.config();
@@ -99,6 +100,19 @@ app.use("/api/auth", authRoutes);
 app.use('/api/user/favorites', favoritesRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/analytics', analyticsRoutes);
+
+// --- CONTENT VERSION ENDPOINT ---
+app.get('/api/content/version', async (req, res) => {
+  try {
+    const ver = await readContentVersion();
+    // Let the browser keep disk cache but always revalidate (cheap 304s)
+    res.set('Cache-Control', 'no-cache, must-revalidate');
+    return res.status(200).json(ver);
+  } catch (err) {
+    console.error('content/version error', err);
+    return res.status(500).json({ error: 'Failed to read content version' });
+  }
+});
 
 // --- HEALTH CHECK ---
 app.get('/', (req, res) => {

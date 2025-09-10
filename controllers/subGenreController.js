@@ -48,7 +48,9 @@ exports.createSubGenre = async (req, res) => {
 
         await subGenre.save();
         try { await bump('subgenres'); } catch (e) { console.warn('content version bump failed (createSubGenre):', e?.message || e); }
-        res.status(201).json(subGenre);
+        // Return populated doc so frontend can render parent genre name immediately
+        const populated = await SubGenre.findById(subGenre._id).populate('genre', 'name');
+        return res.status(201).json(populated);
     } catch (error) {
         console.error("Error creating sub-genre:", error);
         res.status(500).json({ success: false, error: error.message });

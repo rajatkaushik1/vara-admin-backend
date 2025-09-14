@@ -111,31 +111,6 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// DEBUG: list mounted routes (TEMPORARY - remove after verification)
-app.get('/__routes', (req, res) => {
-  try {
-    const list = [];
-    app._router.stack.forEach((layer) => {
-      if (!layer.route) return;
-      const methods = Object.keys(layer.route.methods || {})
-        .filter(Boolean)
-        .map((m) => m.toUpperCase());
-      list.push({ path: layer.route.path, methods });
-    });
-    // Also include mounted paths added with app.use('/base', router)
-    app._router.stack.forEach((layer) => {
-      if (layer.name === 'router' && layer.regexp) {
-        const base = layer.regexp.toString();
-        // crude parse to show the base path pattern
-        list.push({ mounted: base });
-      }
-    });
-    res.json({ ok: true, routes: list });
-  } catch (e) {
-    res.status(500).json({ ok: false, error: e.message });
-  }
-});
-
 // --- MONGODB CONNECTION WITH BETTER ERROR HANDLING ---
 console.log('🔄 Attempting MongoDB connection...');
 

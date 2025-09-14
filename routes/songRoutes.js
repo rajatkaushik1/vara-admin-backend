@@ -35,7 +35,7 @@ router.delete('/:id', deleteSong);
 // --- TRACKING ENDPOINT ---
 router.post('/track/:songId', trackInteraction);
 
-// Trending and New uploads
+// Trending and New uploads (use controller; already populate moods there)
 router.get('/trending', cacheControl(60), cache(30), getTrendingSongs);
 router.get('/new', cacheControl(60), cache(30), getNewSongs);
 
@@ -52,6 +52,7 @@ router.get('/by-ids', cacheControl(60), cache(30), async (req, res) => {
       .populate('genres', 'name')
       .populate('subGenres', 'name')
       .populate('instruments', 'name')
+      .populate('moods', 'name')
       .sort({ 'analytics.totalPlays': -1 });
 
     res.json(songs);
@@ -83,6 +84,7 @@ router.get('/by-genres', cacheControl(60), cache(30), async (req, res) => {
         .populate('genres', 'name')
         .populate('subGenres', 'name')
         .populate('instruments', 'name')
+        .populate('moods', 'name')
         .sort({ 'analytics.totalPlays': -1 })
         .limit(parseInt(limit, 10));
       return res.json(popular);
@@ -92,6 +94,7 @@ router.get('/by-genres', cacheControl(60), cache(30), async (req, res) => {
       .populate('genres', 'name')
       .populate('subGenres', 'name')
       .populate('instruments', 'name')
+      .populate('moods', 'name')
       .sort({ 'analytics.totalPlays': -1 })
       .limit(parseInt(limit, 10));
 
@@ -105,7 +108,7 @@ router.get('/by-genres', cacheControl(60), cache(30), async (req, res) => {
   }
 });
 
-// NEW: Get songs that include a specific instrument
+// Get songs that include a specific instrument
 router.get('/instrument/:instrumentId', async (req, res) => {
   try {
     const { instrumentId } = req.params;
@@ -116,6 +119,7 @@ router.get('/instrument/:instrumentId', async (req, res) => {
       .populate('genres', 'name')
       .populate('subGenres', 'name')
       .populate('instruments', 'name')
+      .populate('moods', 'name')
       .sort({ createdAt: -1 });
     res.json(songs);
   } catch (error) {
@@ -124,7 +128,7 @@ router.get('/instrument/:instrumentId', async (req, res) => {
   }
 });
 
-// NEW: Get songs by multiple instruments (resolver for carousels/recs)
+// Get songs by multiple instruments (resolver for carousels/recs)
 router.get('/by-instruments', async (req, res) => {
   try {
     const { instrumentIds, limit = 15 } = req.query;
@@ -138,19 +142,67 @@ router.get('/by-instruments', async (req, res) => {
       query.instruments = { $in: ids };
     }
 
-    // Fallback to popular songs if no valid IDs
-    const baseQuery = Song.find(query)
+    const songs = await Song.find(query)
       .populate('genres', 'name')
       .populate('subGenres', 'name')
       .populate('instruments', 'name')
+      .populate('moods', 'name')
       .sort({ 'analytics.totalPlays': -1 })
       .limit(parseInt(limit, 10));
 
-    const songs = await baseQuery;
     res.json(songs);
   } catch (error) {
     console.error('Error fetching songs by instruments:', error);
     res.status(500).json({ message: 'Server error while fetching songs by instruments' });
+  }
+});
+
+// NEW: Get songs that include a specific mood
+router.get('/mood/:moodId', async (req, res) => {
+  try {
+    const { moodId } = req.params;
+    if (!/^[0-9a-fA-F]{24}$/.test(moodId)) {
+      return res.status(400).json({ message: 'Invalid moodId' });
+    }
+    const songs = await Song.find({ moods: moodId })
+      .populate('genres', 'name')
+      .populate('subGenres', 'name')
+      .populate('instruments', 'name')
+      .populate('moods', 'name')
+      .sort({ createdAt: -1 });
+    res.json(songs);
+  } catch (error) {
+    console.error('Error fetching songs by mood:', error);
+    res.status(500).json({ message: 'Server error while fetching songs by mood' });
+  }
+});
+
+// NEW: Get songs by multiple moods (resolver)
+router.get('/by-moods', async (req, res) => {
+  try {
+    const { moodIds, limit = 15 } = req.query;
+    const ids = (moodIds || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(id => /^[0-9a-fA-F]{24}$/.test(id));
+
+    const query = {};
+    if (ids.length) {
+      query.moods = { $in: ids };
+    }
+
+    const songs = await Song.find(query)
+      .populate('genres', 'name')
+      .populate('subGenres', 'name')
+      .populate('instruments', 'name')
+      .populate('moods', 'name')
+      .sort({ 'analytics.totalPlays': -1 })
+      .limit(parseInt(limit, 10));
+
+    res.json(songs);
+  } catch (error) {
+    console.error('Error fetching songs by moods:', error);
+    res.status(500).json({ message: 'Server error while fetching songs by moods' });
   }
 });
 
@@ -161,6 +213,7 @@ router.get('/', cacheControl(60), cache(30), async (req, res) => {
       .populate('genres', 'name')
       .populate('subGenres', 'name')
       .populate('instruments', 'name')
+      .populate('moods', 'name')
       .sort({ createdAt: -1 });
     res.json(songs);
   } catch (error) {
@@ -175,7 +228,8 @@ router.get('/:id', async (req, res) => {
     const song = await Song.findById(req.params.id)
       .populate('genres', 'name')
       .populate('subGenres', 'name')
-      .populate('instruments', 'name');
+      .populate('instruments', 'name')
+      .populate('moods', 'name');
     if (!song) return res.status(404).json({ message: 'Song not found' });
     res.json(song);
   } catch (error) {
@@ -191,8 +245,9 @@ router.get('/genre/:genreId', async (req, res) => {
       .populate('genres', 'name')
       .populate('subGenres', 'name')
       .populate('instruments', 'name')
+      .populate('moods', 'name')
       .sort({ createdAt: -1 });
-  res.json(songs);
+    res.json(songs);
   } catch (error) {
     console.error('Error fetching songs by genre:', error);
     res.status(500).json({ message: 'Server error while fetching songs by genre' });
@@ -206,6 +261,7 @@ router.get('/subgenre/:subGenreId', async (req, res) => {
       .populate('genres', 'name')
       .populate('subGenres', 'name')
       .populate('instruments', 'name')
+      .populate('moods', 'name')
       .sort({ createdAt: -1 });
     res.json(songs);
   } catch (error) {
@@ -221,6 +277,7 @@ router.get('/collection/free', async (req, res) => {
       .populate('genres', 'name')
       .populate('subGenres', 'name')
       .populate('instruments', 'name')
+      .populate('moods', 'name')
       .sort({ createdAt: -1 });
     res.json(songs);
   } catch (error) {
@@ -236,6 +293,7 @@ router.get('/collection/paid', async (req, res) => {
       .populate('genres', 'name')
       .populate('subGenres', 'name')
       .populate('instruments', 'name')
+      .populate('moods', 'name')
       .sort({ createdAt: -1 });
     res.json(songs);
   } catch (error) {

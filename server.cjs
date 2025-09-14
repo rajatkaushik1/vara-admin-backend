@@ -13,65 +13,43 @@ const favoritesRoutes = require('./routes/favoritesRoutes');
 const userRoutes = require('./routes/userRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const { read: readContentVersion } = require('./utils/contentVersion');
+const moodRoutes = require("./routes/moodRoutes");
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
 
-// --- ENVIRONMENT VALIDATION ---
-console.log('🔍 Environment Variables Check:');
-console.log('NODE_ENV:', process.env.NODE_ENV || 'not set');
-console.log('PORT:', process.env.PORT || 'not set');
-console.log('MONGODB_URI exists:', process.env.MONGODB_URI ? 'YES' : 'NO');
-
-if (!process.env.MONGODB_URI) {
-  console.error('❌ CRITICAL ERROR: MONGODB_URI environment variable is not set!');
-  console.error('Please set MONGODB_URI in your Render dashboard environment variables.');
-  process.exit(1);
-}
-
-// --- UNIFIED CORS CONFIG ---
-const allowedOrigins = [
+/**
+ * Hardened CORS: reflect only allowed origins and always answer preflight with 204.
+ */
+const allowedOrigins = new Set([
   'https://vara-admin-frontend.onrender.com',
   'http://localhost:3000',
   'http://localhost:5173',
   'http://localhost:5174',
-];
+]);
 
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (mobile apps, curl) and allowed origins
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    // Dev: allow others but still reflect the origin so ACAO is set
-    return callback(null, true);
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Origin', 'Accept'],
-  exposedHeaders: ['Content-Length'],
-  optionsSuccessStatus: 204
-};
-
-// Apply CORS globally (handles preflight too)
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
-
-// Fallback CORS reflector to guarantee ACAO on every response,
-// even for early errors or non-standard code paths.
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin) {
-    res.header('Vary', 'Origin');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Origin, Accept');
-    // Reflect the requesting origin (allowed in dev and for listed origins)
-    res.header('Access-Control-Allow-Origin', origin);
-    if (req.method === 'OPTIONS') {
-      return res.sendStatus(204);
-    }
+  // Always set Vary for caches
+  res.setHeader('Vary', 'Origin');
+
+  // Reflect origin only if in allowlist
+  if (origin && allowedOrigins.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+
+  // Allowed methods/headers (covers admin frontend fetches with Authorization)
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Origin, Accept');
+  // Optional exposure
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Length');
+
+  // Short-circuit preflight
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
   }
   next();
 });
@@ -95,6 +73,7 @@ app.use((req, res, next) => {
 app.use("/api/genres", genreRoutes);
 app.use("/api/subgenres", subGenreRoutes);
 app.use("/api/instruments", instrumentRoutes);
+app.use("/api/moods", moodRoutes);
 app.use("/api/songs", songRoutes);
 app.use("/api/auth", authRoutes);
 app.use('/api/user/favorites', favoritesRoutes);

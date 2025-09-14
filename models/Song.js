@@ -32,6 +32,11 @@ const songSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Instrument'
     }],
+    // NEW: Moods are independent tags (multi-select, like instruments)
+    moods: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Mood'
+    }],
     collectionType: {
         type: String,
         enum: ['free', 'paid'], // Removed 'premium' as it's not in your frontend form

@@ -1,23 +1,50 @@
-const mongoose = require('mongoose');
+const ContentVersion = require('../models/ContentVersion');
 
-const ContentVersionSchema = new mongoose.Schema(
-  {
-    // A single global doc. Unique key ensures we don't accidentally create multiple records.
-    key: { type: String, default: 'global', unique: true, index: true },
+// Ensure a doc exists, return it.
+// Uses 'key:global' as the single-record selector.
+async function ensureDoc() {
+  let doc = await ContentVersion.findOne({ key: 'global' });
+  if (!doc) {
+    const now = Date.now();
+    doc = await ContentVersion.create({ key: 'global', v: now });
+  }
+  return doc;
+}
 
-    // Global version timestamp (ms since epoch). Bumped on ANY content write.
-    v: { type: Number, default: 0 },
+// Bump the global version and optionally a specific type
+// Allowed types: songs | genres | subgenres | instruments | moods
+// Returns the new timestamp used.
+async function bump(type) {
+  const now = Date.now();
+  const setObj = { v: now, updatedAt: new Date() };
 
-    // Per-collection version timestamps (ms).
-    songs: { type: Number, default: 0 },
-    genres: { type: Number, default: 0 },
-    subgenres: { type: Number, default: 0 },
-    instruments: { type: Number, default: 0 },
+  const allowed = ['songs', 'genres', 'subgenres', 'instruments', 'moods'];
+  if (type && allowed.includes(type)) {
+    setObj[type] = now;
+  }
 
-    // NEW: moods version timestamp (ms)
-    moods: { type: Number, default: 0 }
-  },
-  { timestamps: true }
-);
+  // Upsert guarantees the doc exists and gets updated atomically.
+  await ContentVersion.updateOne(
+    { key: 'global' },
+    { $set: setObj },
+    { upsert: true }
+  );
 
-module.exports = mongoose.model('ContentVersion', ContentVersionSchema);
+  return now;
+}
+
+// Read the current version snapshot (creates a doc if missing).
+async function read() {
+  const doc = await ensureDoc();
+  return {
+    v: doc.v || 0,
+    songs: doc.songs || 0,
+    genres: doc.genres || 0,
+    subgenres: doc.subgenres || 0,
+    instruments: doc.instruments || 0,
+    moods: doc.moods || 0, // include moods in snapshot
+    updatedAt: doc.updatedAt
+  };
+}
+
+module.exports = { bump, read };

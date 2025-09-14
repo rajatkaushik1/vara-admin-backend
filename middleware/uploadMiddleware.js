@@ -36,6 +36,8 @@ const cloudinaryStorage = new CloudinaryStorage({
       folder = 'vara-music-subgenres';
     } else if (file.fieldname === 'instrumentImage') {
       folder = 'vara-music-instruments';
+    } else if (file.fieldname === 'moodImage') {
+      folder = 'vara-music-moods';
     } else {
       folder = 'vara-music-misc';
     }

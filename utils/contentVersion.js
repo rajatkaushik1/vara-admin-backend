@@ -1,47 +1,23 @@
-const ContentVersion = require('../models/ContentVersion');
+const mongoose = require('mongoose');
 
-// Ensure a doc exists, return it.
-// Uses 'key:global' as the single-record selector.
-async function ensureDoc() {
-  let doc = await ContentVersion.findOne({ key: 'global' });
-  if (!doc) {
-    const now = Date.now();
-    doc = await ContentVersion.create({ key: 'global', v: now });
-  }
-  return doc;
-}
+const ContentVersionSchema = new mongoose.Schema(
+  {
+    // A single global doc. Unique key ensures we don't accidentally create multiple records.
+    key: { type: String, default: 'global', unique: true, index: true },
 
-// Bump the global version and optionally a specific type (songs|genres|subgenres|instruments).
-// Returns the new timestamp used.
-async function bump(type) {
-  const now = Date.now();
-  const setObj = { v: now, updatedAt: new Date() };
+    // Global version timestamp (ms since epoch). Bumped on ANY content write.
+    v: { type: Number, default: 0 },
 
-  if (type && ['songs', 'genres', 'subgenres', 'instruments'].includes(type)) {
-    setObj[type] = now;
-  }
+    // Per-collection version timestamps (ms).
+    songs: { type: Number, default: 0 },
+    genres: { type: Number, default: 0 },
+    subgenres: { type: Number, default: 0 },
+    instruments: { type: Number, default: 0 },
 
-  // Upsert guarantees the doc exists and gets updated atomically.
-  await ContentVersion.updateOne(
-    { key: 'global' },
-    { $set: setObj },
-    { upsert: true }
-  );
+    // NEW: moods version timestamp (ms)
+    moods: { type: Number, default: 0 }
+  },
+  { timestamps: true }
+);
 
-  return now;
-}
-
-// Read the current version snapshot (creates a doc if missing).
-async function read() {
-  const doc = await ensureDoc();
-  return {
-    v: doc.v || 0,
-    songs: doc.songs || 0,
-    genres: doc.genres || 0,
-    subgenres: doc.subgenres || 0,
-    instruments: doc.instruments || 0,
-    updatedAt: doc.updatedAt
-  };
-}
-
-module.exports = { bump, read };
+module.exports = mongoose.model('ContentVersion', ContentVersionSchema);

@@ -280,67 +280,74 @@ exports.getListenAgain = async (req, res) => {
 // NEW: Weekly Recommendations (not personalized, optimized with lean + parallel queries)
 // Logic unchanged: 40% trending, 30% new, 30% undiscovered, de-dupe in that order.
 exports.getWeeklyRecommendations = async (req, res) => {
-    try {
-        // Ensure Cache-Control present on MISS path too (HIT handled by cache middleware)
-        res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=30');
-        const limit = Math.min(parseInt(req.query.limit, 10) || 15, 30);
-        const trendingCount = Math.round(limit * 0.4);
-        const newCount = Math.round(limit * 0.3);
-        const undiscoveredCount = limit - trendingCount - newCount;
+  try {
+    // Ensure Cache-Control present on MISS path too (HIT handled by cache middleware)
+    res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=30');
 
-        const fromDate = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    const limit = Math.min(parseInt(req.query.limit, 10) || 15, 30);
+    const trendingCount = Math.round(limit * 0.4);
+    const newCount = Math.round(limit * 0.3);
+    const undiscoveredCount = limit - trendingCount - newCount;
 
-        // Run independent queries in parallel; keep minimal populates and use lean() to avoid hydration
-        const [trendingSongs, newSongs, undiscoveredSongs] = await Promise.all([
-            // Trending: highest trendingScore
-            Song.find({ 'analytics.trendingScore': { $gt: 0 } })
-                .populate('genres', 'name')
-                .populate('subGenres', 'name')
-                .sort({ 'analytics.trendingScore': -1 })
-                .limit(trendingCount)
-                .lean(),
+    const fromDate = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
 
-            // New: created in last 10 days
-            Song.find({ createdAt: { $gte: fromDate } })
-                .populate('genres', 'name')
-                .populate('subGenres', 'name')
-                .sort({ createdAt: -1 })
-                .limit(newCount)
-                .lean(),
+    // Run independent queries in parallel; keep minimal populates and use lean() to avoid hydration
+    const [trendingSongs, newSongs, undiscoveredSongs] = await Promise.all([
+      // Trending: highest trendingScore
+      Song.find({ 'analytics.trendingScore': { $gt: 0 } })
+        .populate('genres', 'name')
+        .populate('subGenres', 'name')
+        .populate('instruments', 'name') // ADDED
+        .populate('moods', 'name')       // ADDED
+        .sort({ 'analytics.trendingScore': -1 })
+        .limit(trendingCount)
+        .lean(),
 
-            // Undiscovered: low plays + has required media/metadata
-            Song.find({
-                    'analytics.totalPlays': { $lte: 5 },
-                    imageUrl: { $exists: true, $ne: '' },
-                    audioUrl: { $exists: true, $ne: '' },
-                    bpm: { $exists: true },
-                    key: { $exists: true, $ne: '' }
-                })
-                .populate('genres', 'name')
-                .populate('subGenres', 'name')
-                .sort({ createdAt: -1 })
-                .limit(undiscoveredCount)
-                .lean()
-        ]);
+      // New: created in last 10 days
+      Song.find({ createdAt: { $gte: fromDate } })
+        .populate('genres', 'name')
+        .populate('subGenres', 'name')
+        .populate('instruments', 'name') // ADDED
+        .populate('moods', 'name')       // ADDED
+        .sort({ createdAt: -1 })
+        .limit(newCount)
+        .lean(),
 
-        // Merge and deduplicate by _id, preserving order: trending → new → undiscovered
-        const seen = new Set();
-        const merged = [];
-        for (const arr of [trendingSongs, newSongs, undiscoveredSongs]) {
-            for (const song of arr) {
-                const id = String(song._id);
-                if (!seen.has(id)) {
-                    merged.push(song);
-                    seen.add(id);
-                }
-                if (merged.length >= limit) break;
-            }
-            if (merged.length >= limit) break;
+      // Undiscovered: low plays + has required media/metadata
+      Song.find({
+        'analytics.totalPlays': { $lte: 5 },
+        imageUrl: { $exists: true, $ne: '' },
+        audioUrl: { $exists: true, $ne: '' },
+        bpm: { $exists: true },
+        key: { $exists: true, $ne: '' }
+      })
+        .populate('genres', 'name')
+        .populate('subGenres', 'name')
+        .populate('instruments', 'name') // ADDED
+        .populate('moods', 'name')       // ADDED
+        .sort({ createdAt: -1 })
+        .limit(undiscoveredCount)
+        .lean()
+    ]);
+
+    // Merge and deduplicate by _id, preserving order: trending → new → undiscovered
+    const seen = new Set();
+    const merged = [];
+    for (const arr of [trendingSongs, newSongs, undiscoveredSongs]) {
+      for (const song of arr) {
+        const id = String(song._id);
+        if (!seen.has(id)) {
+          merged.push(song);
+          seen.add(id);
         }
-
-        res.json(merged);
-    } catch (error) {
-        console.error('Error fetching weekly recommendations:', error);
-        res.status(500).json({ message: 'Server error while fetching weekly recommendations' });
+        if (merged.length >= limit) break;
+      }
+      if (merged.length >= limit) break;
     }
+
+    res.json(merged);
+  } catch (error) {
+    console.error('Error fetching weekly recommendations:', error);
+    res.status(500).json({ message: 'Server error while fetching weekly recommendations' });
+  }
 };

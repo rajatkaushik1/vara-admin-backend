@@ -35,6 +35,8 @@ app.use((req, res, next) => {
   const origin = req.headers.origin;
   // Always set Vary for caches
   res.setHeader('Vary', 'Origin');
+  console.log('[CORS]', 'origin =', origin || 'none', 'allowed =', origin ? allowedOrigins.has(origin) : 'n/a');
+  res.setHeader('X-VARA-CORS', 'on');
 
   // Reflect origin only if in allowlist
   if (origin && allowedOrigins.has(origin)) {

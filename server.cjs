@@ -30,10 +30,11 @@ const app = express();
  */
 const allowedOrigins = new Set([
   'https://vara-admin-frontend.onrender.com',
-  'https://vara-user-frontend.onrender.com',
+  'https://varamusic.com',
   'http://localhost:3000',
   'http://localhost:5173',
   'http://localhost:5174',
+  'https://vara-user-frontend.pages.dev'
 ]);
 
 app.use((req, res, next) => {

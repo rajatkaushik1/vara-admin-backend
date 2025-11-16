@@ -87,10 +87,10 @@ exports.getAllSongs = async (req, res) => {
     }
 
     const songs = await Song.find(filter)
-      .populate('genres', 'name')
-      .populate('subGenres', 'name')
-      .populate('instruments', 'name')
-      .populate('moods', 'name')
+      .populate('genres', 'name description imageUrl')
+      .populate('subGenres', 'name description imageUrl')
+      .populate('instruments', 'name description imageUrl')
+      .populate('moods', 'name description imageUrl')
       .populate('batch', 'name')
       .sort({ createdAt: -1 })
       .lean();
@@ -180,10 +180,10 @@ exports.createSong = async (req, res) => {
     const saved = await newSong.save();
 
     const populated = await Song.findById(saved._id)
-      .populate('genres', 'name')
-      .populate('subGenres', 'name')
-      .populate('instruments', 'name')
-      .populate('moods', 'name')
+      .populate('genres', 'name description imageUrl')
+      .populate('subGenres', 'name description imageUrl')
+      .populate('instruments', 'name description imageUrl')
+      .populate('moods', 'name description imageUrl')
       .populate('batch', 'name');
 
     try { await bump('songs'); } catch (e) { console.warn('content version bump failed (createSong):', e?.message || e); }
@@ -273,10 +273,10 @@ exports.updateSong = async (req, res) => {
     await song.save();
 
     const populated = await Song.findById(song._id)
-      .populate('genres', 'name')
-      .populate('subGenres', 'name')
-      .populate('instruments', 'name')
-      .populate('moods', 'name')
+      .populate('genres', 'name description imageUrl')
+      .populate('subGenres', 'name description imageUrl')
+      .populate('instruments', 'name description imageUrl')
+      .populate('moods', 'name description imageUrl')
       .populate({ path: 'batch', select: 'name', strictPopulate: false });
 
     try { await bump('songs'); } catch (e) {
@@ -457,10 +457,10 @@ exports.getTrendingSongs = async (req, res) => {
     const trendingSongs = await Song.find({
       'analytics.trendingScore': { $gt: 0 }
     })
-      .populate('genres', 'name')
-      .populate('subGenres', 'name')
-      .populate('instruments', 'name')
-      .populate('moods', 'name')
+      .populate('genres', 'name description imageUrl')
+      .populate('subGenres', 'name description imageUrl')
+      .populate('instruments', 'name description imageUrl')
+      .populate('moods', 'name description imageUrl')
       .sort({ 'analytics.trendingScore': -1 })
       .limit(12)
       .lean();
@@ -486,10 +486,10 @@ exports.getNewSongs = async (req, res) => {
     const newSongs = await Song.find({
       createdAt: { $gte: fromDate }
     })
-      .populate('genres', 'name')
-      .populate('subGenres', 'name')
-      .populate('instruments', 'name')
-      .populate('moods', 'name')
+      .populate('genres', 'name description imageUrl')
+      .populate('subGenres', 'name description imageUrl')
+      .populate('instruments', 'name description imageUrl')
+      .populate('moods', 'name description imageUrl')
       .sort({ createdAt: -1 })
       .limit(limit)
       .lean();
@@ -511,10 +511,10 @@ exports.getMySongs = async (req, res) => {
     }
 
     const songs = await Song.find({ createdBy: req.user._id })
-      .populate('genres', 'name')
-      .populate('subGenres', 'name')
-      .populate('instruments', 'name')
-      .populate('moods', 'name')
+      .populate('genres', 'name description imageUrl')
+      .populate('subGenres', 'name description imageUrl')
+      .populate('instruments', 'name description imageUrl')
+      .populate('moods', 'name description imageUrl')
       .populate('batch', 'name')
       .sort({ createdAt: -1 })
       .lean();
@@ -527,4 +527,3 @@ exports.getMySongs = async (req, res) => {
 };
 
 // Don’t change any other function in this file.
-

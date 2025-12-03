@@ -53,20 +53,34 @@
         const { username, password } = req.body;
 
         try {
-            // Check if user exists
-            const user = await User.findOne({ username });
+            // Normalize the identifier (what the user typed into the "Username" field)
+            const identifier = (username || '').trim();
+
+            // Basic guard: if either identifier or password is missing, return generic 401
+            if (!identifier || !password) {
+                return res.status(401).json({ message: 'Invalid username or password' });
+            }
+
+            // Try to find by username first
+            let user = await User.findOne({ username: identifier });
+
+            // If not found by username, allow login by email as a fallback
+            if (!user) {
+                user = await User.findOne({ email: identifier });
+            }
 
             // Check if user exists and password matches
             if (user && (await user.matchPassword(password))) {
-                res.json({
+                return res.json({
                     _id: user._id,
                     username: user.username,
                     role: user.role,
                     token: generateToken(user._id), // Generate and send JWT
                 });
-            } else {
-                res.status(401).json({ message: 'Invalid username or password' });
             }
+
+            // Generic 401 for any mismatch, without revealing whether user exists
+            return res.status(401).json({ message: 'Invalid username or password' });
         } catch (error) {
             console.error("Error logging in user:", error);
             res.status(500).json({ message: 'Server error during login', error: error.message });
